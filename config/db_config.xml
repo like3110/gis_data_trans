@@ -1,0 +1,46 @@
+<?xml version='1.0' encoding='utf-8'?>
+<configuration>
+    <auth DB_NAME="ORACLE209">
+        <type>oracle</type>
+        <host>10.45.28.209</host>
+        <port>1521</port>
+        <!--  oracle sid或server_name ,必选选一个参数写入，同时存在server_name 和 sid时优先使用server_name作为连接参数
+        <sid>res189</sid>
+        <serven_name>res189</serven_name>
+        -->
+        <sid>orcl</sid>
+        <server_name></server_name>
+        <username>sde</username>
+        <password>sde</password>
+    </auth>
+    <auth DB_NAME="ORACLE189">
+        <type>oracle</type>
+        <host>10.45.53.189</host>
+        <port>1521</port>
+        <!--  oracle sid或server_name ,必选选一个参数写入，同时存在server_name 和 sid时优先使用server_name作为连接参数
+        <sid>res189</sid>
+        <serven_name>res189</serven_name>
+        -->
+        <sid>res189</sid>
+        <server_name></server_name>
+        <username>GIS_CMJS_TEST</username>
+        <password>GIS_CMJS_TEST</password>
+    </auth>
+    <auth DB_NAME="pg">
+        <type>postgre</type>
+        <host>10.45.59.187</host>
+        <port>1521</port>
+        <db>orcl</db>
+        <server_name></server_name>
+        <username>BDTA_PD_TEST</username>
+        <password></password>
+    </auth>
+    <auth DB_NAME="MYSQL209">
+        <type>mysql</type>
+        <host>10.45.28.209</host>
+        <port>3306</port>
+        <db>hive</db>
+        <username>root</username>
+        <password></password>
+    </auth>
+</configuration>
