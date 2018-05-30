@@ -123,7 +123,9 @@ def add_data_trans(mapping_tree):
 
 if __name__ == '__main__':
     group = 1
-    unload_tree = etree.parse(gis_map_cfg)
-    group_tree = unload_tree.find('GROUP[@ID="%s"]' % group)
+    gis_map_tree = etree.parse(gis_map_cfg)
+    group_tree = gis_map_tree.find('GROUP[@ID="%s"]' % group)
+    sourcedb_name = group_tree.attrib['SOURCEDB']
+    targetdb_name = group_tree.attrib['TARGET']
     for mapping_tree in group_tree:
         add_data_trans(mapping_tree)
