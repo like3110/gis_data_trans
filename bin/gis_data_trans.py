@@ -31,35 +31,37 @@ gis_map_cfg = con_path + os.sep + 'gis_map_cfg.xml'
 
 
 def trans_typeid(old_typeid):
-    restype_map = {'701': '846', \
-                   '744': '872', \
-                   '703': '849', \
-                   '704': '850', \
-                   '501': '620', \
-                   '644': '625', \
-                   '607': '636', \
-                   '514': '627', \
-                   '567': '630', \
-                   '205': '635', \
-                   '201': '634', \
-                   '511': '626', \
-                   '6010101': '628', \
-                   '643': '624', \
-                   '508': '632', \
-                   '705': '871', \
-                   '601': '628'
+    restype_map = {701: 846, \
+                   744: 872, \
+                   703: 849, \
+                   704: 850, \
+                   501: 620, \
+                   644: 625, \
+                   607: 636, \
+                   514: 627, \
+                   567: 630, \
+                   205: 635, \
+                   201: 634, \
+                   511: 626, \
+                   6010101: 628, \
+                   643: 624, \
+                   508: 632, \
+                   705: 871, \
+                   601: 628
                    }
-    return restype_map(old_typeid)
+    newtype_id = str(restype_map[old_typeid])
+    return newtype_id
 
 
 def trans_res_id(old_res_id):
-    old_res_type_id = old_res_id[4:7]
+    old_res_type_id = old_res_id[4:8]
+    old_res_type_id = int(old_res_type_id)
     new_res_type_id = trans_typeid(old_res_type_id)
     if len(new_res_type_id) < 4:
         new_res_type_id = '0' + new_res_type_id
     else:
         new_res_type_id = new_res_type_id
-    new_res_id = old_res_id[0:3] + new_res_type_id + old_res_id[8:]
+    new_res_id = old_res_id[0:4] + new_res_type_id + old_res_id[8:]
     return new_res_id
 
 
@@ -76,7 +78,7 @@ def get_gis_cfg_data(dbname):
             break
         else:
             seq_name = 'R' + str(eachline[1])
-            dir_seq[eachline[0]] = eachline[1]
+            dir_seq[eachline[0]] = seq_name
     sql_get_srid = 'SELECT B.TABLE_NAME ,A.AUTH_SRID FROM SDE.SPATIAL_REFERENCES A, SDE.LAYERS B WHERE A.SRID = B.SRID'
     db_cursor.execute(sql_get_srid)
     dir_srid = {}
@@ -91,34 +93,66 @@ def get_gis_cfg_data(dbname):
     return dir_seq, dir_srid
 
 
-def add_data_trans(mapping_tree):
-    mapping_name = mapping_tree.attrib['NAME']
-    for info_tree in mapping_tree.find('SOURCE'):
-        if info_tree.tag == 'DB':
-            source_db = info_tree.text
-        elif info_tree.tag == 'TABLE':
-            source_table = info_tree.text
-        elif info_tree.tag == 'COLS':
-            source_cols = info_tree.text
-    for info_tree in mapping_tree.find('TARGET'):
-        if info_tree.tag == 'DB':
-            target_db = info_tree.text
-        elif info_tree.tag == 'TABLE':
-            target_table = info_tree.text
-        elif info_tree.tag == 'COLS':
-            target_cols = info_tree.text
-    dir_seq, dir_srid = get_gis_cfg_data(target_db)
-    partition = re.compile(r':(\w)*:')
-    source_cols_new = re.sub(partition, '', source_cols)
-    partition = re.compile(r'^,')
-    source_cols_new = re.sub(partition, '', source_cols_new)
-    partition = re.compile(r',$')
-    source_cols_new = re.sub(partition, '', source_cols_new)
-    source_cols_new = source_cols_new + ',BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
-    source_data_get_sql='select ' + source_cols_new + ' from ' + source_table + ' where DAL_FLAG = 0 or DAL_FLAG is null'
-    print(dir_seq)
-    print(dir_srid)
-    print(source_data_get_sql)
+def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
+    sourcetable_name = mapping_tree.attrib['SOURCETABLE']
+    targettable_name = mapping_tree.attrib['TARGETTABLE']
+    geometry_type=mapping_tree.attrib['GEOMETRYTYPE']
+    dir_seq, dir_srid = get_gis_cfg_data(targetdb_name)
+    source_cols = []
+    target_cols = []
+    rule_list = []
+    for rela_tree in mapping_tree:
+        sourcecol_name = rela_tree.attrib['SOURCECOL']
+        targetcol_name = rela_tree.attrib['TARGETCOL']
+        rule_name = rela_tree.attrib['RULE']
+        if sourcecol_name != '' and targetcol_name != '':
+            if rule_name == ':SHAPE:':
+                sourcecol_name = 'dbms_lob.substr(sde.st_astext(' + sourcecol_name + '),32762,1)'
+            source_cols.append(sourcecol_name)
+            target_cols.append(targetcol_name)
+            rule_list.append(rule_name)
+        # print(sourcecol_name, targetcol_name, rule_name)
+    spilt_chr = ','
+    source_line = spilt_chr.join(source_cols)
+    source_line = source_line+',BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
+    target_line = spilt_chr.join(target_cols)
+    get_data_sql = 'SELECT ' + source_line + ' FROM ' + sourcetable_name + ' WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1 ORDER BY DEAL_DATE'
+    source_db_config = db_connect.get_db_config(db_cfg_file, sourcedb_name)
+    source_db_conn = db_connect.get_connect(source_db_config)
+    source_db_cursor = source_db_conn.cursor()
+    source_db_cursor.execute(get_data_sql)
+    while 1:
+        eachline = source_db_cursor.fetchone()
+        print(eachline)
+        if eachline is None:
+            break
+        else:
+            value = []
+            for index in range(len(eachline)-4):
+                if rule_list[index] == '':
+                    line_str = "'" + str(eachline[index]) + "'"
+                elif rule_list[index] == ':SEQ:':
+                    line_str = dir_seq[targettable_name] + '.NEXTVAL'
+                elif rule_list[index] == ':TRANS_TYPE_ID:':
+                    line_str = "'" +trans_typeid(eachline[index])+ "'"
+                elif rule_list[index] == ':TRANS_RES_ID:':
+                    line_str = "'" +trans_res_id(eachline[index])+ "'"
+                elif rule_list[index]  == ':SHAPE:':
+                    if geometry_type == '1':
+                        line_str = "sde.st_pointfromtext('"+eachline[index]+"',"+str(dir_srid[targettable_name])+')'
+                    elif geometry_type == '2':
+                        line_str = "sde.st_pointfromtext('" + eachline[index] + "'," + str(dir_srid[targettable_name]) + ')'
+                    else:
+                        line_str = "'" + str(eachline[index]) + "'"
+                if line_str == "'None'":
+                    line_str = "''"
+                value.append(line_str)
+            spilt_chr = ','
+            line_str = spilt_chr.join(value)
+            print(line_str)
+
+    print(source_line)
+    print(target_line)
 
 
 if __name__ == '__main__':
@@ -128,4 +162,4 @@ if __name__ == '__main__':
     sourcedb_name = group_tree.attrib['SOURCEDB']
     targetdb_name = group_tree.attrib['TARGET']
     for mapping_tree in group_tree:
-        add_data_trans(mapping_tree)
+        add_data_trans(mapping_tree, sourcedb_name, targetdb_name)
