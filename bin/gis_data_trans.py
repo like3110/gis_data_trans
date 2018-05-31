@@ -146,7 +146,7 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                         line_str = "sde.st_pointfromtext('" + eachline[index] + "'," + str(
                             dir_srid[targettable_name]) + ')'
                     elif geometry_type == '2':
-                        line_str = "sde.st_pointfromtext('" + eachline[index] + "'," + str(
+                        line_str = "sde.st_linestring('" + eachline[index] + "'," + str(
                             dir_srid[targettable_name]) + ')'
                     else:
                         line_str = "'" + str(eachline[index]) + "'"
