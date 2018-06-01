@@ -97,7 +97,7 @@ def get_gis_cfg_data(dbname):
 def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
     mapping_name = mapping_tree.attrib['NAME']
     childStart = datetime.datetime.now()
-    print('Time:[%s] MAPPING (%S) begin (%s)' % (childStart, mapping_name, os.getpid()))
+    print('Time:[%s] MAPPING (%s) begin (%s)' % (childStart, mapping_name, os.getpid()))
     sourcetable_name = mapping_tree.attrib['SOURCETABLE']
     targettable_name = mapping_tree.attrib['TARGETTABLE']
     geometry_type = mapping_tree.attrib['GEOMETRYTYPE']
@@ -196,15 +196,101 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
                 final_sql = 'DELETE FROM ' + targettable_name + ' WHERE ' + condition_final
             print(final_sql)
-            target_db_cursor.execute(final_sql)
+            # target_db_cursor.execute(final_sql)
     target_db_conn.commit()
     target_db_cursor.close()
     target_db_conn.close()
     source_db_cursor.close()
     source_db_conn.close()
     childEnd = datetime.datetime.now()
-    print('Time:[%s] MAPPING (%S) END (%s)' % (childEnd, mapping_name, os.getpid()))
-    print('MAPPING (%S) run %0.2f seconds.' % (mapping_name, (mainEnd - mainStart).seconds))
+    print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
+    print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
+
+
+def all_data_trans(mapping_tree, sourcedb_name, targetdb_name):
+    mapping_name = mapping_tree.attrib['NAME']
+    childStart = datetime.datetime.now()
+    print('Time:[%s] MAPPING (%s) begin (%s)' % (childStart, mapping_name, os.getpid()))
+    sourcetable_name = mapping_tree.attrib['SOURCETABLE']
+    targettable_name = mapping_tree.attrib['TARGETTABLE']
+    geometry_type = mapping_tree.attrib['GEOMETRYTYPE']
+    if geometry_type == '1' or geometry_type == '2':
+        dir_seq, dir_srid = get_gis_cfg_data(targetdb_name)
+    source_cols = []
+    target_cols = []
+    rule_list = []
+    for rela_tree in mapping_tree:
+        sourcecol_name = rela_tree.attrib['SOURCECOL']
+        targetcol_name = rela_tree.attrib['TARGETCOL']
+        rule_name = rela_tree.attrib['RULE']
+        if sourcecol_name != '' and targetcol_name != '':
+            if rule_name == ':SHAPE:':
+                sourcecol_name = 'dbms_lob.substr(sde.st_astext(' + sourcecol_name + '),32762,1)'
+            source_cols.append(sourcecol_name)
+            target_cols.append(targetcol_name)
+            rule_list.append(rule_name)
+    spilt_chr = ','
+    source_line = spilt_chr.join(source_cols)
+    get_data_sql = 'SELECT ' + source_line + ' FROM ' + sourcetable_name
+    source_db_config = db_connect.get_db_config(db_cfg_file, sourcedb_name)
+    source_db_conn = db_connect.get_connect(source_db_config)
+    source_db_cursor = source_db_conn.cursor()
+    source_db_cursor.execute(get_data_sql)
+    target_db_config = db_connect.get_db_config(db_cfg_file, targetdb_name)
+    target_db_conn = db_connect.get_connect(target_db_config)
+    target_db_cursor = target_db_conn.cursor()
+    while 1:
+        eachline = source_db_cursor.fetchone()
+        if eachline is None:
+            break
+        else:
+            value = []
+            for index in range(len(eachline)):
+                if rule_list[index] == '':
+                    if isinstance(eachline[index], datetime.datetime):
+                        line_str = "TO_DATE('" + str(eachline[index]) + "','YYYY-MM-DD hh24:mi:ss')"
+                    else:
+                        line_str = "'" + str(eachline[index]) + "'"
+                elif rule_list[index] == ':SEQ:':
+                    line_str = dir_seq[targettable_name] + '.NEXTVAL'
+                elif rule_list[index] == ':TRANS_TYPE_ID:':
+                    line_str = "'" + trans_typeid(eachline[index]) + "'"
+                elif rule_list[index] == ':TRANS_RES_ID:':
+                    line_str = "'" + trans_res_id(eachline[index]) + "'"
+                elif rule_list[index] == ':SHAPE:':
+                    if geometry_type == '1':
+                        if eachline[index] != None:
+                            line_str = "sde.st_pointfromtext('" + eachline[index] + "'," + str(
+                                dir_srid[targettable_name]) + ')'
+                        else:
+                            del target_cols[index]
+                            continue
+                    elif geometry_type == '2':
+                        if eachline[index] != '':
+                            line_str = "sde.st_linestring('" + eachline[index] + "'," + str(
+                                dir_srid[targettable_name]) + ')'
+                        else:
+                            del target_cols[index]
+                            continue
+                    else:
+                        line_str = "'" + str(eachline[index]) + "'"
+                if line_str == "'None'":
+                    line_str = "''"
+                value.append(line_str)
+            spilt_chr = ','
+            line_str = spilt_chr.join(value)
+            target_line = spilt_chr.join(target_cols)
+            final_sql = 'INSERT INTO ' + targettable_name + '(' + target_line + ') VALUES (' + line_str + ')'
+            print(final_sql)
+            #target_db_cursor.execute(final_sql)
+    target_db_conn.commit()
+    target_db_cursor.close()
+    target_db_conn.close()
+    source_db_cursor.close()
+    source_db_conn.close()
+    childEnd = datetime.datetime.now()
+    print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
+    print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
 
 
 if __name__ == '__main__':
@@ -215,9 +301,12 @@ if __name__ == '__main__':
     group_tree = gis_map_tree.find('GROUP[@ID="%s"]' % group)
     sourcedb_name = group_tree.attrib['SOURCEDB']
     targetdb_name = group_tree.attrib['TARGET']
+    sync_type = group_tree.attrib['SYNC_TYPE']
     for mapping_tree in group_tree:
-        p.apply_async(add_data_trans, args=(mapping_tree, sourcedb_name, targetdb_name,))
-        # add_data_trans(mapping_tree, sourcedb_name, targetdb_name)
+        if sync_type == 'ADD':
+            p.apply_async(add_data_trans, args=(mapping_tree, sourcedb_name, targetdb_name,))
+        elif sync_type == 'ALL':
+            p.apply_async(all_data_trans, args=(mapping_tree, sourcedb_name, targetdb_name,))
     p.close()
     p.join()
     print('All subprocesses done')
