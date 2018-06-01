@@ -6,7 +6,8 @@
 import datetime
 import os
 import re
-
+import argparse
+from multiprocessing import Pool
 import db_connect
 
 try:
@@ -14,12 +15,12 @@ try:
 except ImportError:
     import xml.etree.ElementTree as etree
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument('--group', dest='group', required=True)
-# parser.add_argument('--procnum', dest='procnum', required=True)
-# args = parser.parse_args()
-# group = args.group
-# procnum = int(args.procnum)
+parser = argparse.ArgumentParser()
+parser.add_argument('--group', dest='group', required=True)
+parser.add_argument('--procnum', dest='procnum', required=True)
+args = parser.parse_args()
+group = args.group
+procnum = int(args.procnum)
 
 file_path = os.path.realpath(__file__)
 bin_path = os.path.split(file_path)[0]
@@ -94,6 +95,9 @@ def get_gis_cfg_data(dbname):
 
 
 def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
+    mapping_name = mapping_tree.attrib['NAME']
+    childStart = datetime.datetime.now()
+    print('Time:[%s] MAPPING (%S) begin (%s)' % (childStart, mapping_name, os.getpid()))
     sourcetable_name = mapping_tree.attrib['SOURCETABLE']
     targettable_name = mapping_tree.attrib['TARGETTABLE']
     geometry_type = mapping_tree.attrib['GEOMETRYTYPE']
@@ -124,6 +128,9 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
     source_db_cursor.execute(del_flag_pre)
     source_db_conn.commit()
     source_db_cursor.execute(get_data_sql)
+    target_db_config = db_connect.get_db_config(db_cfg_file, targetdb_name)
+    target_db_conn = db_connect.get_connect(target_db_config)
+    target_db_cursor = target_db_conn.cursor()
     source_table_title = [i[0] for i in source_db_cursor.description]
     while 1:
         eachline = source_db_cursor.fetchone()
@@ -176,7 +183,7 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                 condition_id = condition_name[condition_index[0] + 1:condition_index[1] - 1]
                 condition_data_index = source_table_title.index(condition_id)
                 condition_data = value[condition_data_index]
-                #condition_data = "'" + str(condition_data) + "'"
+                # condition_data = "'" + str(condition_data) + "'"
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
                 final_sql = 'UPDATE ' + targettable_name + ' SET (' + target_line + ')=(SELECT  ' + line_str + ' FROM DUAL) WHERE ' \
                             + condition_final
@@ -185,17 +192,35 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                 condition_id = condition_name[condition_index[0] + 1:condition_index[1] - 1]
                 condition_data_index = source_table_title.index(condition_id)
                 condition_data = value[condition_data_index]
-                #condition_data = "'" + str(condition_data) + "'"
+                # condition_data = "'" + str(condition_data) + "'"
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
                 final_sql = 'DELETE FROM ' + targettable_name + ' WHERE ' + condition_final
             print(final_sql)
+            target_db_cursor.execute(final_sql)
+    target_db_conn.commit()
+    target_db_cursor.close()
+    target_db_conn.close()
+    source_db_cursor.close()
+    source_db_conn.close()
+    childEnd = datetime.datetime.now()
+    print('Time:[%s] MAPPING (%S) END (%s)' % (childEnd, mapping_name, os.getpid()))
+    print('MAPPING (%S) run %0.2f seconds.' % (mapping_name, (mainEnd - mainStart).seconds))
 
 
 if __name__ == '__main__':
-    group = 1
+    mainStart = datetime.datetime.now()
+    print('Time:[%s] Start the main process (%s).' % (mainStart, os.getpid()))
+    p = Pool(procnum)
     gis_map_tree = etree.parse(gis_map_cfg)
     group_tree = gis_map_tree.find('GROUP[@ID="%s"]' % group)
     sourcedb_name = group_tree.attrib['SOURCEDB']
     targetdb_name = group_tree.attrib['TARGET']
     for mapping_tree in group_tree:
-        add_data_trans(mapping_tree, sourcedb_name, targetdb_name)
+        p.apply_async(add_data_trans, args=(mapping_tree, sourcedb_name, targetdb_name,))
+        # add_data_trans(mapping_tree, sourcedb_name, targetdb_name)
+    p.close()
+    p.join()
+    print('All subprocesses done')
+    mainEnd = datetime.datetime.now()
+    print('Time:[%s] End the main process (%s).' % (mainEnd, os.getpid()))
+    print('All process run %0.2f seconds.' % (mainEnd - mainStart).seconds)
