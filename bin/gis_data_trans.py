@@ -175,17 +175,17 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                 condition_index = re.search(r':(\w)+:', condition_name).span()
                 condition_id = condition_name[condition_index[0] + 1:condition_index[1] - 1]
                 condition_data_index = source_table_title.index(condition_id)
-                condition_data = eachline[condition_data_index]
-                condition_data = "'" + str(condition_data) + "'"
+                condition_data = value[condition_data_index]
+                #condition_data = "'" + str(condition_data) + "'"
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
-                final_sql = 'UPDATE ' + targettable_name + ' SET (' + target_line + ')=( SELECT  ' + line_str + ' FROM DUAL) WHERE ' \
+                final_sql = 'UPDATE ' + targettable_name + ' SET (' + target_line + ')=(SELECT  ' + line_str + ' FROM DUAL) WHERE ' \
                             + condition_final
             elif eachline[-2] == 'DELETE':
                 condition_index = re.search(r':(\w)+:', condition_name).span()
                 condition_id = condition_name[condition_index[0] + 1:condition_index[1] - 1]
                 condition_data_index = source_table_title.index(condition_id)
-                condition_data = eachline[condition_data_index]
-                condition_data = "'" + str(condition_data) + "'"
+                condition_data = value[condition_data_index]
+                #condition_data = "'" + str(condition_data) + "'"
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
                 final_sql = 'DELETE FROM ' + targettable_name + ' WHERE ' + condition_final
             print(final_sql)
