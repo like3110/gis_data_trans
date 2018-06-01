@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Usage:
+# Usage: 数据同步工具
 
-import db_connect
-import argparse
+import datetime
 import os
 import re
-import datetime
+
+import db_connect
 
 try:
     import xml.etree.cElementTree as etree
@@ -116,16 +116,21 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
     spilt_chr = ','
     source_line = spilt_chr.join(source_cols)
     source_line = source_line + ',BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
-    target_line = spilt_chr.join(target_cols)
-    get_data_sql = 'SELECT ' + source_line + ' FROM ' + sourcetable_name + " WHERE BEFORE_AFTER = 'AFTER' AND (DAL_FLAG IS NULL OR DAL_FLAG = 1) ORDER BY DEAL_DATE"
+    del_flag_pre = 'UPDATE ' + sourcetable_name + ' SET DAL_FLAG=2 WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1'
+    get_data_sql = 'SELECT ' + source_line + ' FROM ' + sourcetable_name + " WHERE BEFORE_AFTER = 'AFTER' AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
     source_db_config = db_connect.get_db_config(db_cfg_file, sourcedb_name)
     source_db_conn = db_connect.get_connect(source_db_config)
     source_db_cursor = source_db_conn.cursor()
+    source_db_cursor.execute(del_flag_pre)
+    source_db_conn.commit()
     source_db_cursor.execute(get_data_sql)
     source_table_title = [i[0] for i in source_db_cursor.description]
     while 1:
         eachline = source_db_cursor.fetchone()
         if eachline is None:
+            del_flag_pos = 'UPDATE ' + sourcetable_name + ' SET DAL_FLAG=3 WHERE DAL_FLAG = 2'
+            source_db_cursor.execute(del_flag_pos)
+            source_db_conn.commit()
             break
         else:
             value = []
@@ -143,11 +148,19 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                     line_str = "'" + trans_res_id(eachline[index]) + "'"
                 elif rule_list[index] == ':SHAPE:':
                     if geometry_type == '1':
-                        line_str = "sde.st_pointfromtext('" + eachline[index] + "'," + str(
-                            dir_srid[targettable_name]) + ')'
+                        if eachline[index] != None:
+                            line_str = "sde.st_pointfromtext('" + eachline[index] + "'," + str(
+                                dir_srid[targettable_name]) + ')'
+                        else:
+                            del target_cols[index]
+                            continue
                     elif geometry_type == '2':
-                        line_str = "sde.st_linestring('" + eachline[index] + "'," + str(
-                            dir_srid[targettable_name]) + ')'
+                        if eachline[index] != '':
+                            line_str = "sde.st_linestring('" + eachline[index] + "'," + str(
+                                dir_srid[targettable_name]) + ')'
+                        else:
+                            del target_cols[index]
+                            continue
                     else:
                         line_str = "'" + str(eachline[index]) + "'"
                 if line_str == "'None'":
@@ -155,16 +168,18 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                 value.append(line_str)
             spilt_chr = ','
             line_str = spilt_chr.join(value)
+            target_line = spilt_chr.join(target_cols)
             if eachline[-2] == 'INSERT':
                 final_sql = 'INSERT INTO ' + targettable_name + '(' + target_line + ') VALUES (' + line_str + ')'
-            elif eachline[-2] == 'UPDATE':
+            elif eachline[-2] == 'SQL COMPUPDATE':
                 condition_index = re.search(r':(\w)+:', condition_name).span()
                 condition_id = condition_name[condition_index[0] + 1:condition_index[1] - 1]
                 condition_data_index = source_table_title.index(condition_id)
                 condition_data = eachline[condition_data_index]
                 condition_data = "'" + str(condition_data) + "'"
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
-                final_sql = 'UPDATE ' + targettable_name + ' SET (' + target_line + ')=( ' + line_str + ') WHERE ' + condition_final
+                final_sql = 'UPDATE ' + targettable_name + ' SET (' + target_line + ')=( SELECT  ' + line_str + ' FROM DUAL) WHERE ' \
+                            + condition_final
             elif eachline[-2] == 'DELETE':
                 condition_index = re.search(r':(\w)+:', condition_name).span()
                 condition_id = condition_name[condition_index[0] + 1:condition_index[1] - 1]
