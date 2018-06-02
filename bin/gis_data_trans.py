@@ -9,6 +9,7 @@ import re
 import argparse
 from multiprocessing import Pool
 import db_connect
+import logging
 
 try:
     import xml.etree.cElementTree as etree
@@ -18,17 +19,40 @@ except ImportError:
 parser = argparse.ArgumentParser()
 parser.add_argument('--group', dest='group', required=True)
 parser.add_argument('--procnum', dest='procnum', required=True)
+parser.add_argument('--debug', dest='debug', required=False, default='INFO')
 args = parser.parse_args()
 group = args.group
+debug = args.debug
+debug = debug.upper()
+debug_list = {'INFO': logging.INFO, 'DEBUG': logging.DEBUG, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR,
+              'CRITICAL': logging.CRITICAL}
 procnum = int(args.procnum)
-
 file_path = os.path.realpath(__file__)
 bin_path = os.path.split(file_path)[0]
 base_path = os.path.split(bin_path)[0]
 con_path = base_path + os.sep + 'config'
 data_path = base_path + os.sep + 'data'
+log_path = base_path + os.sep + 'log'
 db_cfg_file = con_path + os.sep + 'db_config.xml'
 gis_map_cfg = con_path + os.sep + 'gis_map_cfg.xml'
+if os.path.exists(log_path):
+    1
+else:
+    os.mkdir(log_path)
+
+log_name = datetime.date.isoformat(datetime.datetime.now().date()) + '.log'
+logfile = log_path + os.sep + log_name
+logging.basicConfig(level=debug_list[debug],
+                    format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s',
+                    datefmt='%a, %d %b %Y %H:%M:%S',
+                    filename=logfile,
+                    filemode='a')
+
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
 
 
 def trans_typeid(old_typeid):
@@ -97,7 +121,9 @@ def get_gis_cfg_data(dbname):
 def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
     mapping_name = mapping_tree.attrib['NAME']
     childStart = datetime.datetime.now()
-    print('Time:[%s] MAPPING (%s) begin (%s)' % (childStart, mapping_name, os.getpid()))
+    logstr = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_name, 'pid': os.getpid()}
+    logging.info(logstr)
+    # print('Time:[%s] MAPPING (%s) begin (%s)' % (childStart, mapping_name, os.getpid()))
     sourcetable_name = mapping_tree.attrib['SOURCETABLE']
     targettable_name = mapping_tree.attrib['TARGETTABLE']
     geometry_type = mapping_tree.attrib['GEOMETRYTYPE']
@@ -195,7 +221,7 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                 # condition_data = "'" + str(condition_data) + "'"
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
                 final_sql = 'DELETE FROM ' + targettable_name + ' WHERE ' + condition_final
-            print(final_sql)
+            logging.debug(final_sql)
             # target_db_cursor.execute(final_sql)
     target_db_conn.commit()
     target_db_cursor.close()
@@ -203,14 +229,20 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
     source_db_cursor.close()
     source_db_conn.close()
     childEnd = datetime.datetime.now()
-    print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
-    print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
+    logstr = "MAPPING %(mapping_name)s end %(pid)s " % {'mapping_name': mapping_name, 'pid': os.getpid()}
+    logging.info(logstr)
+    # print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
+    logstr = "MAPPING %(mapping_name)s run %(sec)0.2f " % {'mapping_name': mapping_name,
+                                                           'sec': (childEnd - childStart).seconds}
+    logging.info(logstr)
+    # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
 
 
 def all_data_trans(mapping_tree, sourcedb_name, targetdb_name):
     mapping_name = mapping_tree.attrib['NAME']
     childStart = datetime.datetime.now()
-    print('Time:[%s] MAPPING (%s) begin (%s)' % (childStart, mapping_name, os.getpid()))
+    logstr = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_name, 'pid': os.getpid()}
+    logging.info(logstr)
     sourcetable_name = mapping_tree.attrib['SOURCETABLE']
     targettable_name = mapping_tree.attrib['TARGETTABLE']
     geometry_type = mapping_tree.attrib['GEOMETRYTYPE']
@@ -281,21 +313,27 @@ def all_data_trans(mapping_tree, sourcedb_name, targetdb_name):
             line_str = spilt_chr.join(value)
             target_line = spilt_chr.join(target_cols)
             final_sql = 'INSERT INTO ' + targettable_name + '(' + target_line + ') VALUES (' + line_str + ')'
-            print(final_sql)
-            #target_db_cursor.execute(final_sql)
+            logging.debug(final_sql)
+            # target_db_cursor.execute(final_sql)
     target_db_conn.commit()
     target_db_cursor.close()
     target_db_conn.close()
     source_db_cursor.close()
     source_db_conn.close()
     childEnd = datetime.datetime.now()
-    print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
-    print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
+    logstr = "MAPPING %(mapping_name)s end %(pid)s " % {'mapping_name': mapping_name, 'pid': os.getpid()}
+    logging.info(logstr)
+    # print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
+    logstr = "MAPPING %(mapping_name)s run %(sec)0.2f seconds" % {'mapping_name': mapping_name,
+                                                           'sec': (childEnd - childStart).seconds}
+    logging.info(logstr)
+    # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
 
 
 if __name__ == '__main__':
     mainStart = datetime.datetime.now()
-    print('Time:[%s] Start the main process (%s).' % (mainStart, os.getpid()))
+    logstr = "Start the main process %(pid)s" % {'pid': os.getpid()}
+    logging.info(logstr)
     p = Pool(procnum)
     gis_map_tree = etree.parse(gis_map_cfg)
     group_tree = gis_map_tree.find('GROUP[@ID="%s"]' % group)
@@ -309,7 +347,10 @@ if __name__ == '__main__':
             p.apply_async(all_data_trans, args=(mapping_tree, sourcedb_name, targetdb_name,))
     p.close()
     p.join()
-    print('All subprocesses done')
+    logstr = "All subprocesses done"
+    logging.info(logstr)
     mainEnd = datetime.datetime.now()
-    print('Time:[%s] End the main process (%s).' % (mainEnd, os.getpid()))
-    print('All process run %0.2f seconds.' % (mainEnd - mainStart).seconds)
+    logstr = "End the main process %(pid)s" % {'pid': os.getpid()}
+    logging.info(logstr)
+    logstr = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
+    logging.info(logstr)
