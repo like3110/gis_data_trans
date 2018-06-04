@@ -222,7 +222,7 @@ def add_data_trans(mapping_tree, sourcedb_name, targetdb_name):
                 condition_final = re.sub(r':(\w)+:', condition_data, condition_name)
                 final_sql = 'DELETE FROM ' + targettable_name + ' WHERE ' + condition_final
             logging.debug(final_sql)
-            # target_db_cursor.execute(final_sql)
+            target_db_cursor.execute(final_sql)
     target_db_conn.commit()
     target_db_cursor.close()
     target_db_conn.close()
@@ -314,7 +314,7 @@ def all_data_trans(mapping_tree, sourcedb_name, targetdb_name):
             target_line = spilt_chr.join(target_cols)
             final_sql = 'INSERT INTO ' + targettable_name + '(' + target_line + ') VALUES (' + line_str + ')'
             logging.debug(final_sql)
-            # target_db_cursor.execute(final_sql)
+            target_db_cursor.execute(final_sql)
     target_db_conn.commit()
     target_db_cursor.close()
     target_db_conn.close()
