@@ -104,14 +104,17 @@ def get_gis_cfg_data(dbname):
     return dir_seq, dir_srid
 
 
-def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name):
-    mapping_id = mapping_tree.attrib['ONLINE_MAP_ID']
-    child_Start = datetime.datetime.now()
-    logstr = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
-    logging.info(logstr)
+def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, in_target_resdb_name,
+                   in_target_gisdb_name):
+    print(in_source_gisdb_name)
+    print(in_target_gisdb_name)
+    mapping_id = in_mapping_tree.attrib['ONLINE_MAP_ID']
+    child_start = datetime.datetime.now()
+    child_log_str = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
+    logging.info(child_log_str)
     online_tab_tree = Etree.parse(online_tab_cfg)
-    logstr = "OPEN CFG FILE %(filename)s" % {'filename': online_tab_cfg}
-    logging.debug(logstr)
+    child_log_str = "OPEN CFG FILE %(filename)s" % {'filename': online_tab_cfg}
+    logging.debug(child_log_str)
     res_mapping_tree = online_tab_tree.find('MAPPING[@ID="%s"]' % mapping_id)
     res_source_tab_name = res_mapping_tree.attrib['SOURCE_TAB']
     res_target_tab_name = res_mapping_tree.attrib['TARGET_TAB']
@@ -119,8 +122,8 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
     res_target_type_id = res_mapping_tree.attrib['TARGET_RES_TYPE_ID']
     res_target_seq_name = res_mapping_tree.attrib['TARGET_TAB_SEQ']
     res_condition_name = res_mapping_tree.attrib['CONDITION']
-    logstr = res_source_tab_name + ',' + res_target_tab_name + ',' + res_source_type_id + ',' + res_target_type_id + ',' + res_target_seq_name + ',' + res_condition_name
-    logging.debug(logstr)
+    child_log_str = res_source_tab_name + ',' + res_target_tab_name + ',' + res_source_type_id + ',' + res_target_type_id + ',' + res_target_seq_name + ',' + res_condition_name
+    logging.debug(child_log_str)
     res_source_cols = []
     res_target_cols = []
     res_rule_list = []
@@ -138,13 +141,13 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
     del_flag_pre = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=2 WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1'
     get_data_sql = 'SELECT ' + res_source_line + ' FROM ' + res_source_tab_name + " WHERE BEFORE_AFTER = 'AFTER' AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
     logging.debug(get_data_sql)
-    res_source_db_config = db_connect.get_db_config(db_cfg_file, source_resdb_name)
+    res_source_db_config = db_connect.get_db_config(db_cfg_file, in_source_resdb_name)
     res_source_db_conn = db_connect.get_connect(res_source_db_config)
     res_source_db_cursor = res_source_db_conn.cursor()
     res_source_db_cursor.execute(del_flag_pre)
     res_source_db_conn.commit()
     res_source_db_cursor.execute(get_data_sql)
-    res_target_db_config = db_connect.get_db_config(db_cfg_file, target_resdb_name)
+    res_target_db_config = db_connect.get_db_config(db_cfg_file, in_target_resdb_name)
     res_target_db_conn = db_connect.get_connect(res_target_db_config)
     res_target_db_cursor = res_target_db_conn.cursor()
     source_table_title = [i[0] for i in res_source_db_cursor.description]
@@ -158,6 +161,7 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
         else:
             value = []
             for index in range(len(eachline) - 4):
+                line_str = ''
                 if res_rule_list[index] == '':
                     if isinstance(eachline[index], datetime.datetime):
                         line_str = "TO_DATE('" + str(eachline[index]) + "','YYYY-MM-DD hh24:mi:ss')"
@@ -179,6 +183,8 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
             target_line = spilt_chr.join(res_target_cols)
             if eachline[-2] == 'INSERT':
                 final_sql = 'INSERT INTO ' + res_target_tab_name + '(' + target_line + ') VALUES (' + line_str + ')'
+                logging.debug(final_sql)
+                res_target_db_cursor.execute(final_sql)
             elif eachline[-2] == 'SQL COMPUPDATE':
                 condition_index = re.search(r':(\w)+:', res_condition_name).span()
                 condition_id = res_condition_name[condition_index[0] + 1:condition_index[1] - 1]
@@ -187,6 +193,8 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
                 condition_final = re.sub(r':(\w)+:', condition_data, res_condition_name)
                 final_sql = 'UPDATE ' + res_target_tab_name + ' SET (' + target_line + ')=(SELECT  ' + line_str + ' FROM DUAL) WHERE ' \
                             + condition_final
+                logging.debug(final_sql)
+                res_target_db_cursor.execute(final_sql)
             elif eachline[-2] == 'DELETE':
                 condition_index = re.search(r':(\w)+:', res_condition_name).span()
                 condition_id = res_condition_name[condition_index[0] + 1:condition_index[1] - 1]
@@ -195,27 +203,29 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
                 # condition_data = "'" + str(condition_data) + "'"
                 condition_final = re.sub(r':(\w)+:', condition_data, res_condition_name)
                 final_sql = 'DELETE FROM ' + res_target_tab_name + ' WHERE ' + condition_final
-            logging.debug(final_sql)
+                logging.debug(final_sql)
+                res_target_db_cursor.execute(final_sql)
+            # logging.debug(final_sql)
             # res_target_db_cursor.execute(final_sql)
     res_target_db_conn.commit()
     res_target_db_cursor.close()
     res_target_db_conn.close()
     res_source_db_cursor.close()
     res_source_db_conn.close()
-    child_End = datetime.datetime.now()
-    logstr = "MAPPING %(mapping_name)s end %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
-    logging.info(logstr)
-    # print('Time:[%s] MAPPING (%s) END (%s)' % (child_End, mapping_name, os.getpid()))
-    logstr = "MAPPING %(mapping_name)s run %(sec)0.2f " % {'mapping_name': mapping_id,
-                                                           'sec': (child_End - child_Start).seconds}
-    logging.info(logstr)
-    # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (child_End - child_Start).seconds))
+    child_end = datetime.datetime.now()
+    child_log_str = "MAPPING %(mapping_name)s end %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
+    logging.info(child_log_str)
+    # print('Time:[%s] MAPPING (%s) END (%s)' % (child_end, mapping_name, os.getpid()))
+    child_log_str = "MAPPING %(mapping_name)s run %(sec)0.2f " % {'mapping_name': mapping_id,
+                                                                  'sec': (child_end - child_start).seconds}
+    logging.info(child_log_str)
+    # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (child_end - child_start).seconds))
 
 
 if __name__ == '__main__':
     mainStart = datetime.datetime.now()
-    logstr = "Start the main process %(pid)s" % {'pid': os.getpid()}
-    logging.info(logstr)
+    main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
+    logging.info(main_log_str)
     p = Pool(procnum)
     trans_tree = Etree.parse(trans_cfg)
     group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
@@ -232,10 +242,10 @@ if __name__ == '__main__':
             pass
     p.close()
     p.join()
-    logstr = "All subprocesses done"
-    logging.info(logstr)
+    main_log_str = "All subprocesses done"
+    logging.info(main_log_str)
     mainEnd = datetime.datetime.now()
-    logstr = "End the main process %(pid)s" % {'pid': os.getpid()}
-    logging.info(logstr)
-    logstr = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
-    logging.info(logstr)
+    main_log_str = "End the main process %(pid)s" % {'pid': os.getpid()}
+    logging.info(main_log_str)
+    main_log_str = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
+    logging.info(main_log_str)
