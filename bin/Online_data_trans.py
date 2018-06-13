@@ -12,9 +12,9 @@ import db_connect
 import logging
 
 try:
-    import xml.etree.cElementTree as etree
+    import xml.etree.cElementTree as Etree
 except ImportError:
-    import xml.etree.ElementTree as etree
+    import xml.etree.ElementTree as Etree
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--group', dest='group', required=True)
@@ -38,7 +38,7 @@ gis_map_cfg = con_path + os.sep + 'gis_map_cfg.xml'
 online_tab_cfg = con_path + os.sep + 'Online_tab_map_cfg.xml'
 trans_cfg = con_path + os.sep + 'trans_cfg.xml'
 if os.path.exists(log_path):
-    1
+    pass
 else:
     os.mkdir(log_path)
 
@@ -80,7 +80,7 @@ def get_gis_cfg_data(dbname):
     db_config = db_connect.get_db_config(db_cfg_file, dbname)
     db_conn = db_connect.get_connect(db_config)
     db_cursor = db_conn.cursor()
-    sql_get_seq = 'SELECT A.TABLE_NAME,A.REGISTRATION_ID FROM SDE.TABLE_REGISTRY A WHERE A.REGISTRATION_ID IS NOT NULL AND  A.TABLE_NAME IS NOT NULL'
+    sql_get_seq = "SELECT A.TABLE_NAME,A.REGISTRATION_ID FROM SDE.TABLE_REGISTRY A WHERE A.REGISTRATION_ID IS NOT NULL AND  A.TABLE_NAME IS NOT NULL"
     db_cursor.execute(sql_get_seq)
     dir_seq = {}
     while 1:
@@ -109,7 +109,7 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
     childStart = datetime.datetime.now()
     logstr = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
     logging.info(logstr)
-    online_tab_tree = etree.parse(online_tab_cfg)
+    online_tab_tree = Etree.parse(online_tab_cfg)
     logstr = "OPEN CFG FILE %(filename)s" % {'filename': online_tab_cfg}
     logging.debug(logstr)
     res_mapping_tree = online_tab_tree.find('MAPPING[@ID="%s"]' % mapping_id)
@@ -217,7 +217,7 @@ if __name__ == '__main__':
     logstr = "Start the main process %(pid)s" % {'pid': os.getpid()}
     logging.info(logstr)
     p = Pool(procnum)
-    trans_tree = etree.parse(trans_cfg)
+    trans_tree = Etree.parse(trans_cfg)
     group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
     source_resdb_name = group_tree.attrib['SOURCE_RES_DB']
     source_gisdb_name = group_tree.attrib['SOURCE_GIS_DB']
@@ -229,7 +229,7 @@ if __name__ == '__main__':
             p.apply_async(add_data_trans, args=(
                 mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name))
         elif sync_type == 'ALL':
-            1
+            pass
     p.close()
     p.join()
     logstr = "All subprocesses done"
