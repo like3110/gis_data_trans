@@ -122,6 +122,26 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     res_target_type_id = res_mapping_tree.attrib['TARGET_RES_TYPE_ID']
     res_target_seq_name = res_mapping_tree.attrib['TARGET_TAB_SEQ']
     res_condition_name = res_mapping_tree.attrib['CONDITION']
+    res_gis_is_need = res_mapping_tree.attrib['GIS_IS_NEED']
+    if res_gis_is_need == 1:
+        gis_source_cols = []
+        gis_target_cols = []
+        gis_rule_list = []
+        res_gis_map_id = res_mapping_tree.attrib['GIS_MAP_ID']
+        gis_cfg_tree = Etree.parse(gis_map_cfg)
+        gis_mapping_tree = gis_cfg_tree.find('MAPPING[@ID="%s"]' % res_gis_map_id)
+        for gis_rela_tree in gis_mapping_tree:
+            gis_sourcecol_name = gis_rela_tree.attrib['SOURCECOL']
+            gis_targetcol_name = gis_rela_tree.attrib['TARGETCOL']
+            gis_rule_name = gis_rela_tree.attrib['RULE']
+            if gis_sourcecol_name != '' and gis_targetcol_name != '':
+                gis_source_cols.append(gis_sourcecol_name)
+                gis_target_cols.append(gis_targetcol_name)
+                gis_rule_list.append(gis_rule_name)
+        spilt_chr = ','
+        gis_source_line = spilt_chr.join(gis_source_cols)
+    else:
+        pass
     child_log_str = res_source_tab_name + ',' + res_target_tab_name + ',' + res_source_type_id + ',' + res_target_type_id + ',' + res_target_seq_name + ',' + res_condition_name
     logging.debug(child_log_str)
     res_source_cols = []
@@ -181,32 +201,34 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             spilt_chr = ','
             line_str = spilt_chr.join(value)
             target_line = spilt_chr.join(res_target_cols)
+            res_condition_index = re.search(r':(\w)+:', res_condition_name).span()
+            res_condition_id = res_condition_name[res_condition_index[0] + 1:res_condition_index[1] - 1]
+            res_condition_data_index = source_table_title.index(res_condition_id)
+            res_condition_data = value[res_condition_data_index]
+            res_condition_final = re.sub(r':(\w)+:', res_condition_data, res_condition_name)
+            sql_data_exists = 'SELECT COUNT(1) FROM ' + res_target_tab_name + 'WHERE ' + res_condition_final
+            logging.debug(sql_data_exists)
+            res_target_db_cursor.execute(sql_data_exists)
+            data_result = res_target_db_cursor.fetchall()
+            data_flag = data_result[0][0]
             if eachline[-2] == 'INSERT':
-                final_sql = 'INSERT INTO ' + res_target_tab_name + '(' + target_line + ') VALUES (' + line_str + ')'
-                logging.debug(final_sql)
-                res_target_db_cursor.execute(final_sql)
+                if data_flag == 0:
+                    final_sql = 'INSERT INTO ' + res_target_tab_name + '(' + target_line + ') VALUES (' + line_str + ')'
+                    logging.debug(final_sql)
+                    res_target_db_cursor.execute(final_sql)
+                else:
+                    child_log_str = "DATA EXISTS IN TARGET TABLE %(table_name)s ID %(id)s " % {
+                        'table_name': res_target_tab_name, 'id': res_condition_final}
+                    logging.debug(child_log_str)
             elif eachline[-2] == 'SQL COMPUPDATE':
-                condition_index = re.search(r':(\w)+:', res_condition_name).span()
-                condition_id = res_condition_name[condition_index[0] + 1:condition_index[1] - 1]
-                condition_data_index = source_table_title.index(condition_id)
-                condition_data = value[condition_data_index]
-                condition_final = re.sub(r':(\w)+:', condition_data, res_condition_name)
                 final_sql = 'UPDATE ' + res_target_tab_name + ' SET (' + target_line + ')=(SELECT  ' + line_str + ' FROM DUAL) WHERE ' \
-                            + condition_final
+                            + res_condition_final
                 logging.debug(final_sql)
                 res_target_db_cursor.execute(final_sql)
             elif eachline[-2] == 'DELETE':
-                condition_index = re.search(r':(\w)+:', res_condition_name).span()
-                condition_id = res_condition_name[condition_index[0] + 1:condition_index[1] - 1]
-                condition_data_index = source_table_title.index(condition_id)
-                condition_data = value[condition_data_index]
-                # condition_data = "'" + str(condition_data) + "'"
-                condition_final = re.sub(r':(\w)+:', condition_data, res_condition_name)
-                final_sql = 'DELETE FROM ' + res_target_tab_name + ' WHERE ' + condition_final
+                final_sql = 'DELETE FROM ' + res_target_tab_name + ' WHERE ' + res_condition_final
                 logging.debug(final_sql)
                 res_target_db_cursor.execute(final_sql)
-            # logging.debug(final_sql)
-            # res_target_db_cursor.execute(final_sql)
     res_target_db_conn.commit()
     res_target_db_cursor.close()
     res_target_db_conn.close()
@@ -215,11 +237,9 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     child_end = datetime.datetime.now()
     child_log_str = "MAPPING %(mapping_name)s end %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
     logging.info(child_log_str)
-    # print('Time:[%s] MAPPING (%s) END (%s)' % (child_end, mapping_name, os.getpid()))
     child_log_str = "MAPPING %(mapping_name)s run %(sec)0.2f " % {'mapping_name': mapping_id,
                                                                   'sec': (child_end - child_start).seconds}
     logging.info(child_log_str)
-    # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (child_end - child_start).seconds))
 
 
 if __name__ == '__main__':
