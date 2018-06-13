@@ -325,7 +325,7 @@ def all_data_trans(mapping_tree, sourcedb_name, targetdb_name):
     logging.info(logstr)
     # print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
     logstr = "MAPPING %(mapping_name)s run %(sec)0.2f seconds" % {'mapping_name': mapping_name,
-                                                           'sec': (childEnd - childStart).seconds}
+                                                                  'sec': (childEnd - childStart).seconds}
     logging.info(logstr)
     # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
 

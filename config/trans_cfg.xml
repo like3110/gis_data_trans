@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<configuration>
+    <GROUP ID="1" SOURCE_RES_DB="ORACLE189" SOURCE_GIS_DB="ORACLE189" TARGET_RES_DB="ORACLE209"
+           TARGET_GIS_DB="ORACLE209" SYNC_TYPE="ADD">
+        <RUN ID="1" ONLINE_MAP_ID="1" />
+        <RUN ID="2" ONLINE_MAP_ID="2" />
+        <RUN ID="3" ONLINE_MAP_ID="3" />
+    </GROUP>
+</configuration>
