@@ -106,7 +106,7 @@ def get_gis_cfg_data(dbname):
 
 def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name):
     mapping_id = mapping_tree.attrib['ONLINE_MAP_ID']
-    childStart = datetime.datetime.now()
+    child_Start = datetime.datetime.now()
     logstr = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
     logging.info(logstr)
     online_tab_tree = Etree.parse(online_tab_cfg)
@@ -202,14 +202,14 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
     res_target_db_conn.close()
     res_source_db_cursor.close()
     res_source_db_conn.close()
-    childEnd = datetime.datetime.now()
+    child_End = datetime.datetime.now()
     logstr = "MAPPING %(mapping_name)s end %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
     logging.info(logstr)
-    # print('Time:[%s] MAPPING (%s) END (%s)' % (childEnd, mapping_name, os.getpid()))
+    # print('Time:[%s] MAPPING (%s) END (%s)' % (child_End, mapping_name, os.getpid()))
     logstr = "MAPPING %(mapping_name)s run %(sec)0.2f " % {'mapping_name': mapping_id,
-                                                           'sec': (childEnd - childStart).seconds}
+                                                           'sec': (child_End - child_Start).seconds}
     logging.info(logstr)
-    # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
+    # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (child_End - child_Start).seconds))
 
 
 if __name__ == '__main__':
