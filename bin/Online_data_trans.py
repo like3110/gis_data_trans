@@ -58,24 +58,8 @@ logging.getLogger('').addHandler(console)
 
 
 def trans_typeid(old_typeid):
-    restype_map = {701: 846, \
-                   744: 872, \
-                   703: 849, \
-                   704: 850, \
-                   501: 620, \
-                   644: 625, \
-                   607: 636, \
-                   514: 627, \
-                   567: 630, \
-                   205: 635, \
-                   201: 634, \
-                   511: 626, \
-                   6010101: 628, \
-                   643: 624, \
-                   508: 632, \
-                   705: 871, \
-                   601: 628
-                   }
+    restype_map = {701: 846, 744: 872, 703: 849, 704: 850, 501: 620, 644: 625, 607: 636, 514: 627, 567: 630, 205: 635,
+                   201: 634, 511: 626, 6010101: 628, 643: 624, 508: 632, 705: 871, 601: 628}
     newtype_id = str(restype_map[old_typeid])
     return newtype_id
 
@@ -126,7 +110,7 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
     logstr = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
     logging.info(logstr)
     online_tab_tree = etree.parse(online_tab_cfg)
-    logstr = "OPEN CFG FILE %(filename)" % {'filename': online_tab_cfg}
+    logstr = "OPEN CFG FILE %(filename)s" % {'filename': online_tab_cfg}
     logging.debug(logstr)
     res_mapping_tree = online_tab_tree.find('MAPPING[@ID="%s"]' % mapping_id)
     res_source_tab_name = res_mapping_tree.attrib['SOURCE_TAB']
@@ -186,7 +170,7 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
                         res_target_type_id = z_str[0:z_len] + res_target_type_id
                     line_str = '\'0001' + res_target_type_id + '\'||LPAD(' + res_target_seq_name + '.NEXTVAL' + ',16,0)'
                 elif res_rule_list[index] == ':TRANS_TYPE_ID:':
-                    line_str = "'" + res_target_type_id  + "'"
+                    line_str = "'" + res_target_type_id + "'"
                 if line_str == "'None'":
                     line_str = "''"
                 value.append(line_str)
@@ -212,7 +196,7 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
                 condition_final = re.sub(r':(\w)+:', condition_data, res_condition_name)
                 final_sql = 'DELETE FROM ' + res_target_tab_name + ' WHERE ' + condition_final
             logging.debug(final_sql)
-            #res_target_db_cursor.execute(final_sql)
+            # res_target_db_cursor.execute(final_sql)
     res_target_db_conn.commit()
     res_target_db_cursor.close()
     res_target_db_conn.close()
@@ -226,6 +210,7 @@ def add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_re
                                                            'sec': (childEnd - childStart).seconds}
     logging.info(logstr)
     # print('MAPPING (%s) run %0.2f seconds.' % (mapping_name, (childEnd - childStart).seconds))
+
 
 if __name__ == '__main__':
     mainStart = datetime.datetime.now()
@@ -242,7 +227,7 @@ if __name__ == '__main__':
     for mapping_tree in group_tree:
         if sync_type == 'ADD':
             p.apply_async(add_data_trans, args=(
-            mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name))
+                mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name))
         elif sync_type == 'ALL':
             1
     p.close()
