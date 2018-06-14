@@ -137,12 +137,16 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
         gis_cfg_tree = Etree.parse(gis_map_cfg)
         gis_mapping_tree = gis_cfg_tree.find('MAPPING[@ID="%s"]' % res_gis_map_id)
         '''
+        获取gis_map_cfg.xml配置文件中MAPPING标签下所有数据
         '''
         gis_source_tab_name = res_mapping_tree.attrib['SOURCETABLE']
         gis_target_tab_name = res_mapping_tree.attrib['TARGETTABLE']
         gis_fetch_condition_name = res_mapping_tree.attrib['FETCH_CONDITION']
         gis_up_condition_name = res_mapping_tree.attrib['UP_CONDITION']
         gis_geometrytype = res_mapping_tree.attrib['GEOMETRYTYPE']
+        '''
+        
+        '''
         for gis_rela_tree in gis_mapping_tree:
             gis_sourcecol_name = gis_rela_tree.attrib['SOURCECOL']
             gis_targetcol_name = gis_rela_tree.attrib['TARGETCOL']
