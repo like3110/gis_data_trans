@@ -127,19 +127,32 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
         gis_source_cols = []
         gis_target_cols = []
         gis_rule_list = []
+        gis_ignore_list = []
         res_gis_map_id = res_mapping_tree.attrib['GIS_MAP_ID']
         gis_cfg_tree = Etree.parse(gis_map_cfg)
         gis_mapping_tree = gis_cfg_tree.find('MAPPING[@ID="%s"]' % res_gis_map_id)
+        gis_source_tab_name = res_mapping_tree.attrib['SOURCETABLE']
+        gis_target_tab_name = res_mapping_tree.attrib['TARGETTABLE']
+        gis_fetch_condition_name = res_mapping_tree.attrib['FETCH_CONDITION']
+        gis_up_condition_name = res_mapping_tree.attrib['UP_CONDITION']
+        gis_geometrytype = res_mapping_tree.attrib['GEOMETRYTYPE']
         for gis_rela_tree in gis_mapping_tree:
             gis_sourcecol_name = gis_rela_tree.attrib['SOURCECOL']
             gis_targetcol_name = gis_rela_tree.attrib['TARGETCOL']
             gis_rule_name = gis_rela_tree.attrib['RULE']
+            gis_ignore = gis_rela_tree.attrib['IGNORE']
             if gis_sourcecol_name != '' and gis_targetcol_name != '':
+                if gis_rule_name == ':SHAPE:':
+                    gis_sourcecol_name = 'dbms_lob.substr(sde.st_astext(' + gis_sourcecol_name + '),32762,1)'
                 gis_source_cols.append(gis_sourcecol_name)
                 gis_target_cols.append(gis_targetcol_name)
                 gis_rule_list.append(gis_rule_name)
+                gis_ignore_list.append(gis_ignore)
         spilt_chr = ','
         gis_source_line = spilt_chr.join(gis_source_cols)
+        gis_source_db_config = db_connect.get_db_config(db_cfg_file, in_source_resdb_name)
+        gis_source_db_conn = db_connect.get_connect(gis_source_db_config)
+        gis_source_db_cursor = gis_source_db_conn.cursor()
     else:
         pass
     child_log_str = res_source_tab_name + ',' + res_target_tab_name + ',' + res_source_type_id + ',' + res_target_type_id + ',' + res_target_seq_name + ',' + res_condition_name
@@ -156,6 +169,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             res_target_cols.append(res_targetcol_name)
             res_rule_list.append(res_rule_name)
     spilt_chr = ','
+    dir_seq, dir_srid = get_gis_cfg_data(in_target_gisdb_name)
     res_source_line = spilt_chr.join(res_source_cols)
     res_source_line = res_source_line + ',BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
     del_flag_pre = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=2 WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1'
@@ -180,7 +194,9 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             break
         else:
             value = []
+            dir_value = {}
             for index in range(len(eachline) - 4):
+                target_col_name = res_target_cols[index]
                 line_str = ''
                 if res_rule_list[index] == '':
                     if isinstance(eachline[index], datetime.datetime):
@@ -198,9 +214,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 if line_str == "'None'":
                     line_str = "''"
                 value.append(line_str)
-            spilt_chr = ','
-            line_str = spilt_chr.join(value)
-            target_line = spilt_chr.join(res_target_cols)
+                dir_value[target_col_name] = line_str
             res_condition_index = re.search(r':(\w)+:', res_condition_name).span()
             res_condition_id = res_condition_name[res_condition_index[0] + 1:res_condition_index[1] - 1]
             res_condition_data_index = source_table_title.index(res_condition_id)
@@ -211,11 +225,63 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             res_target_db_cursor.execute(sql_data_exists)
             data_result = res_target_db_cursor.fetchall()
             data_flag = data_result[0][0]
+            if res_gis_is_need == 1:
+                gis_condition_index = re.search(r':(\w)+:', gis_fetch_condition_name).span()
+                gis_condition_id = res_condition_name[gis_condition_index[0] + 1:gis_condition_index[1] - 1]
+                res_condition_data = dir_value[gis_condition_id]
+                res_condition_final = re.sub(r':(\w)+:', res_condition_data, res_condition_name)
+                sql_get_gis_data = 'SELECT ' + gis_source_line + ' FROM ' + gis_source_tab_name + ' WHERE ' + res_condition_final
+                logging.debug(sql_get_gis_data)
+                gis_source_db_cursor.execute(sql_get_gis_data)
+                gis_resualt = gis_source_db_cursor.fetchone()
+                if gis_resualt is None:
+                    child_log_str = "CAN NOT FETCH GIS DATA IN %(sql)s" % {'sql': sql_get_gis_data}
+                    logging.warning(child_log_str)
+                else:
+                    gis_values=()
+                    dir_gis_values = {}
+                    for gis_index in range(len(gis_resualt)):
+                        gis_target_col_name = gis_target_cols[gis_index]
+                        gis_line_str = ''
+                        if gis_rule_list[gis_index] == '':
+                            if isinstance(gis_resualt[gis_index], datetime.datetime):
+                                gis_line_str = "TO_DATE('" + str(gis_resualt[gis_index]) + "','YYYY-MM-DD hh24:mi:ss')"
+                            else:
+                                gis_line_str = "'" + str(gis_resualt[gis_index]) + "'"
+                        elif gis_rule_list[gis_index] == ':SEQ:':
+                            gis_line_str = dir_seq[gis_target_tab_name] + '.NEXTVAL'
+                        elif gis_rule_list[gis_index] == ':TRANS_TYPE_ID:':
+                            gis_line_str = "'" + trans_typeid(gis_resualt[gis_index]) + "'"
+                        elif gis_rule_list[gis_index] == ':TRANS_RES_ID:':
+                            gis_line_str = "'" + trans_res_id(gis_resualt[gis_index]) + "'"
+                        elif gis_rule_list[gis_index] == ':SHAPE:':
+                            if gis_geometrytype == '1':
+                                if gis_resualt[gis_index] != None:
+                                    gis_line_str = "sde.st_pointfromtext('" + gis_resualt[gis_index] + "'," + str(
+                                        dir_srid[gis_target_tab_name]) + ')'
+                                else:
+                                    del gis_target_cols[gis_index]
+                                    continue
+                            elif gis_geometrytype == '2':
+                                if gis_resualt[gis_index] != '':
+                                    gis_line_str = "sde.st_linestring('" + gis_resualt[gis_index] + "'," + str(
+                                        dir_srid[gis_target_tab_name]) + ')'
+                                else:
+                                    del gis_target_cols[gis_index]
+                                    continue
+                            else:
+                                gis_line_str = "'" + str(gis_resualt[gis_index]) + "'"
+                        dir_gis_values[gis_target_col_name] = gis_line_str
+                        gis_values.append(gis_line_str)
+            spilt_chr = ','
+            line_str = spilt_chr.join(value)
+            target_line = spilt_chr.join(res_target_cols)
             if eachline[-2] == 'INSERT':
                 if data_flag == 0:
-                    final_sql = 'INSERT INTO ' + res_target_tab_name + '(' + target_line + ') VALUES (' + line_str + ')'
-                    logging.debug(final_sql)
-                    res_target_db_cursor.execute(final_sql)
+                    res_final_sql = 'INSERT INTO ' + res_target_tab_name + '(' + target_line + ') VALUES (' + line_str + ')'
+                    gis_final_sql = 'INSERT INTO ' + gis_target_tab_name + '(' + target_line + ') VALUES (' + line_str + ')'
+                    logging.debug(res_final_sql)
+                    res_target_db_cursor.execute(res_final_sql)
                 else:
                     child_log_str = "DATA EXISTS IN TARGET TABLE %(table_name)s ID %(id)s " % {
                         'table_name': res_target_tab_name, 'id': res_condition_final}
