@@ -106,8 +106,6 @@ def get_gis_cfg_data(dbname):
 
 def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, in_target_resdb_name,
                    in_target_gisdb_name):
-    print(in_source_gisdb_name)
-    print(in_target_gisdb_name)
     mapping_id = in_mapping_tree.attrib['ONLINE_MAP_ID']
     child_start = datetime.datetime.now()
     child_log_str = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
@@ -115,6 +113,9 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     online_tab_tree = Etree.parse(online_tab_cfg)
     child_log_str = "OPEN CFG FILE %(filename)s" % {'filename': online_tab_cfg}
     logging.debug(child_log_str)
+    '''
+    获取Online_tab_map_cfg.xml配置文件中MAPPING标签下所有数据
+    '''
     res_mapping_tree = online_tab_tree.find('MAPPING[@ID="%s"]' % mapping_id)
     res_source_tab_name = res_mapping_tree.attrib['SOURCE_TAB']
     res_target_tab_name = res_mapping_tree.attrib['TARGET_TAB']
@@ -123,14 +124,20 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     res_target_seq_name = res_mapping_tree.attrib['TARGET_TAB_SEQ']
     res_condition_name = res_mapping_tree.attrib['CONDITION']
     res_gis_is_need = res_mapping_tree.attrib['GIS_IS_NEED']
+    '''
+    判断是否需要对增量更新的数据进行上图，1为需要
+    '''
     if res_gis_is_need == 1:
         gis_source_cols = []
         gis_target_cols = []
         gis_rule_list = []
         gis_ignore_dir = {}
-        res_gis_map_id = res_mapping_tree.attrib['GIS_MAP_ID']
+        res_gis_map_id = res_mapping_tree.attrib[
+            'GIS_MAP_ID']  # Online_tab_map_cfg.xml 中GIS_MAP_ID对应gis_map_cfg.xml中MAPPING id
         gis_cfg_tree = Etree.parse(gis_map_cfg)
         gis_mapping_tree = gis_cfg_tree.find('MAPPING[@ID="%s"]' % res_gis_map_id)
+        '''
+        '''
         gis_source_tab_name = res_mapping_tree.attrib['SOURCETABLE']
         gis_target_tab_name = res_mapping_tree.attrib['TARGETTABLE']
         gis_fetch_condition_name = res_mapping_tree.attrib['FETCH_CONDITION']
