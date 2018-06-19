@@ -76,8 +76,8 @@ def trans_res_id(old_res_id):
     return new_res_id
 
 
-def get_gis_cfg_data(dbname):
-    db_config = db_connect.get_db_config(db_cfg_file, dbname)
+def get_gis_cfg_data(in_dbname):
+    db_config = db_connect.get_db_config(db_cfg_file, in_dbname)
     db_conn = db_connect.get_connect(db_config)
     db_cursor = db_conn.cursor()
     sql_get_seq = "SELECT A.TABLE_NAME,A.REGISTRATION_ID FROM SDE.TABLE_REGISTRY A WHERE A.REGISTRATION_ID IS NOT NULL AND  A.TABLE_NAME IS NOT NULL"
@@ -106,6 +106,7 @@ def get_gis_cfg_data(dbname):
 
 def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, in_target_resdb_name,
                    in_target_gisdb_name):
+    global gis_source_db_cursor, gis_target_db_cursor
     mapping_id = in_mapping_tree.attrib['ONLINE_MAP_ID']
     child_start = datetime.datetime.now()
     child_log_str = "MAPPING %(mapping_name)s begin %(pid)s " % {'mapping_name': mapping_id, 'pid': os.getpid()}
@@ -127,11 +128,18 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     '''
     判断是否需要对增量更新的数据进行上图，1为需要
     '''
+    gis_source_cols = []
+    gis_target_cols = []
+    gis_rule_list = []
+    gis_ignore_dir = {}
+    gis_fetch_condition_name = ''
+    gis_source_tab_name = ''
+    gis_target_tab_name = ''
+    gis_geometrytype = ''
+    gis_up_condition_name = ''
+    dir_seq = {}
+    dir_srid = {}
     if res_gis_is_need == '1':
-        gis_source_cols = []
-        gis_target_cols = []
-        gis_rule_list = []
-        gis_ignore_dir = {}
         res_gis_map_id = res_mapping_tree.attrib[
             'GIS_MAP_ID']  # Online_tab_map_cfg.xml 中GIS_MAP_ID对应gis_map_cfg.xml中MAPPING id
         gis_cfg_tree = Etree.parse(gis_map_cfg)
@@ -220,14 +228,14 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                         line_str = "'" + str(eachline[index]) + "'"
                         values_str = line_str
                 elif res_rule_list[index] == ':SEQ:':
+                    res_get_seq = 'select ' + res_target_seq_name + '.NEXTVAL from dual'
+                    res_target_db_cursor.execute(res_get_seq)
+                    res_seq_result = res_target_db_cursor.fetchall()
+                    res_seq_str = res_seq_result[0][0]
                     if len(res_target_type_id) < 4:
                         z_len = 4 - len(res_target_type_id)
                         z_str = '00000000'
                         res_target_type_id = z_str[0:z_len] + res_target_type_id
-                        res_get_seq = 'select ' + res_target_seq_name + '.NEXTVAL from dual'
-                        res_target_db_cursor.execute(res_get_seq)
-                        res_seq_result = res_target_db_cursor.fetchall()
-                        res_seq_str = res_seq_result[0][0]
                     line_str = '\'0001' + res_target_type_id + '\'||LPAD(' + str(res_seq_str) + ',16,0)'
                     values_str = eachline[index]
                 elif res_rule_list[index] == ':TRANS_TYPE_ID:':
@@ -249,6 +257,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             res_target_db_cursor.execute(sql_data_exists)
             data_result = res_target_db_cursor.fetchall()
             data_flag = data_result[0][0]
+            gis_values = []
             if res_gis_is_need == '1':
                 spilt_chr = ','
                 gis_source_line = spilt_chr.join(gis_source_cols)
@@ -260,13 +269,14 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 logging.debug(sql_get_gis_data)
                 gis_source_db_cursor.execute(sql_get_gis_data)
                 gis_resualt = gis_source_db_cursor.fetchone()
+
                 if gis_resualt is None:
                     child_log_str = "CAN NOT FETCH GIS DATA IN %(sql)s" % {'sql': sql_get_gis_data}
                     logging.warning(child_log_str)
                 else:
-                    gis_values = []
+
                     dir_gis_values = {}
-                    del_index_list=[]
+                    del_index_list = []
                     for gis_index in range(len(gis_resualt)):
                         gis_target_col_name = gis_target_cols[gis_index]
                         gis_line_str = ''
@@ -283,12 +293,12 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                             gis_line_str = "'" + trans_res_id(gis_resualt[gis_index]) + "'"
                         elif gis_rule_list[gis_index] == ':SHAPE:':
                             if gis_geometrytype == '1':
-                                if gis_resualt[gis_index] != None:
+                                if gis_resualt[gis_index] is not None:
                                     gis_line_str = "sde.st_pointfromtext('" + gis_resualt[gis_index] + "'," + str(
                                         dir_srid[gis_target_tab_name]) + ')'
                                 else:
                                     del_index_list.append(gis_index)
-                                    #del gis_target_cols[gis_index]
+                                    # del gis_target_cols[gis_index]
                                     continue
                             elif gis_geometrytype == '2':
                                 if gis_resualt[gis_index] != '':
@@ -296,7 +306,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                                         dir_srid[gis_target_tab_name]) + ')'
                                 else:
                                     del_index_list.append(gis_index)
-                                    #del gis_target_cols[gis_index]
+                                    # del gis_target_cols[gis_index]
                                     continue
                             else:
                                 gis_line_str = "'" + str(gis_resualt[gis_index]) + "'"
@@ -306,9 +316,9 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                         gis_values.append(gis_line_str)
                     for del_index in del_index_list:
                         del gis_target_cols[del_index]
-                spilt_chr = ','
-                gis_line = spilt_chr.join(gis_values)
-                gis_target_line = spilt_chr.join(gis_target_cols)
+            spilt_chr = ','
+            gis_line = spilt_chr.join(gis_values)
+            gis_target_line = spilt_chr.join(gis_target_cols)
             spilt_chr = ','
             res_line = spilt_chr.join(value)
             res_target_line = spilt_chr.join(res_target_cols)
@@ -372,7 +382,6 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     child_log_str = "MAPPING %(mapping_name)s run %(sec)0.2f " % {'mapping_name': mapping_id,
                                                                   'sec': (child_end - child_start).seconds}
     logging.info(child_log_str)
-
 
 
 if __name__ == '__main__':
