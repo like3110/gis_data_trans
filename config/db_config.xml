@@ -10,8 +10,8 @@
         -->
         <sid>orcl</sid>
         <server_name></server_name>
-        <username>sde</username>
-        <password>sde</password>
+        <username>GIS_CMJS_TEST</username>
+        <password>GIS_CMJS_TEST</password>
     </auth>
     <auth DB_NAME="ORACLE189">
         <type>oracle</type>
