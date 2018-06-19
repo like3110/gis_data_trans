@@ -357,7 +357,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                     gis_up_condition_final = re.sub(r':(\w)+:', gis_up_condition_data, gis_up_condition_name)
                     gis_final_sql = 'DELETE FROM ' + gis_target_tab_name + ' WHERE ' + gis_up_condition_final
                     logging.debug(gis_final_sql)
-                    res_target_db_cursor.execute(gis_final_sql)
+                    gis_target_db_cursor.execute(gis_final_sql)
                 res_final_sql = 'DELETE FROM ' + res_target_tab_name + ' WHERE ' + res_condition_final
                 logging.debug(res_final_sql)
                 res_target_db_cursor.execute(res_final_sql)
@@ -374,7 +374,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     logging.info(child_log_str)
 
 
-'''
+
 if __name__ == '__main__':
     mainStart = datetime.datetime.now()
     main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
@@ -402,8 +402,8 @@ if __name__ == '__main__':
     logging.info(main_log_str)
     main_log_str = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
     logging.info(main_log_str)
-'''
 
+'''
 if __name__ == '__main__':
     trans_tree = Etree.parse(trans_cfg)
     group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
@@ -417,3 +417,4 @@ if __name__ == '__main__':
             add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name)
         elif sync_type == 'ALL':
             pass
+'''
