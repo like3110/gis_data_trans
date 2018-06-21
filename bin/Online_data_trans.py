@@ -58,8 +58,61 @@ logging.getLogger('').addHandler(console)
 
 
 def trans_typeid(old_typeid):
-    restype_map = {701: 846, 744: 872, 703: 849, 704: 850, 501: 620, 644: 625, 607: 636, 514: 627, 567: 630, 205: 635,
-                   201: 634, 511: 626, 6010101: 628, 643: 624, 508: 632, 705: 871, 601: 628}
+    restype_map = {200: 200,
+                   201: 634,
+                   205: 635,
+                   302: 848,
+                   317: 867,
+                   373: 868,
+                   501: 620,
+                   503: 621,
+                   505: 622,
+                   508: 632,
+                   509: 623,
+                   511: 626,
+                   514: 627,
+                   525: 631,
+                   526: 633,
+                   567: 630,
+                   601: 628,
+                   607: 636,
+                   608: 629,
+                   620: 501,
+                   621: 503,
+                   622: 505,
+                   623: 509,
+                   624: 643,
+                   625: 644,
+                   626: 511,
+                   627: 514,
+                   628: 601,
+                   629: 608,
+                   630: 567,
+                   631: 525,
+                   632: 508,
+                   633: 526,
+                   634: 201,
+                   635: 205,
+                   636: 607,
+                   643: 624,
+                   644: 625,
+                   645: 601,
+                   701: 846,
+                   702: 847,
+                   703: 849,
+                   704: 850,
+                   705: 871,
+                   744: 872,
+                   846: 701,
+                   847: 702,
+                   848: 302,
+                   849: 703,
+                   850: 704,
+                   867: 317,
+                   868: 373,
+                   871: 705,
+                   872: 744
+                   }
     newtype_id = str(restype_map[old_typeid])
     return newtype_id
 
@@ -124,6 +177,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     res_target_type_id = res_mapping_tree.attrib['TARGET_RES_TYPE_ID']
     res_target_seq_name = res_mapping_tree.attrib['TARGET_TAB_SEQ']
     res_condition_name = res_mapping_tree.attrib['CONDITION']
+    res_where_name = res_mapping_tree.attrib['WHERE']
     res_gis_is_need = res_mapping_tree.attrib['GIS_IS_NEED']
     '''
     判断是否需要对增量更新的数据进行上图，1为需要
@@ -193,7 +247,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     res_source_line = spilt_chr.join(res_source_cols)
     res_source_line = res_source_line + ',BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
     del_flag_pre = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=2 WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1'
-    get_data_sql = 'SELECT ' + res_source_line + ' FROM ' + res_source_tab_name + " WHERE BEFORE_AFTER = 'AFTER' AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
+    get_data_sql = 'SELECT ' + res_source_line + ' FROM ' + res_source_tab_name + " WHERE " + res_where_name + " AND BEFORE_AFTER = 'AFTER' AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
     logging.debug(get_data_sql)
     res_source_db_config = db_connect.get_db_config(db_cfg_file, in_source_resdb_name)
     res_source_db_conn = db_connect.get_connect(res_source_db_config)
@@ -239,7 +293,10 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                     line_str = '\'0001' + res_target_type_id + '\'||LPAD(' + str(res_seq_str) + ',16,0)'
                     values_str = eachline[index]
                 elif res_rule_list[index] == ':TRANS_TYPE_ID:':
-                    line_str = "'" + res_target_type_id + "'"
+                    line_str = "'" + trans_typeid(eachline[index]) + "'"
+                    values_str = line_str
+                elif res_rule_list[index] == ':TRANS_RES_ID:':
+                    line_str = "'" + trans_res_id(eachline[index]) + "'"
                     values_str = line_str
                 if line_str == "'None'":
                     line_str = "''"
