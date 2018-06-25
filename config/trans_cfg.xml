@@ -3,5 +3,26 @@
     <GROUP ID="1" SOURCE_RES_DB="ORACLE189" SOURCE_GIS_DB="ORACLE189" TARGET_RES_DB="ORACLE209"
            TARGET_GIS_DB="ORACLE209" SYNC_TYPE="ADD">
         <RUN ID="1" ONLINE_MAP_ID="1"/>
+        <RUN ID="2" ONLINE_MAP_ID="2"/>
+        <RUN ID="3" ONLINE_MAP_ID="3"/>
+        <RUN ID="4" ONLINE_MAP_ID="4"/>
+        <RUN ID="5" ONLINE_MAP_ID="5"/>
+        <RUN ID="6" ONLINE_MAP_ID="6"/>
+        <RUN ID="7" ONLINE_MAP_ID="7"/>
+        <RUN ID="8" ONLINE_MAP_ID="8"/>
+        <RUN ID="9" ONLINE_MAP_ID="9"/>
+        <RUN ID="10" ONLINE_MAP_ID="10"/>
+        <RUN ID="11" ONLINE_MAP_ID="11"/>
+        <RUN ID="12" ONLINE_MAP_ID="12"/>
+        <RUN ID="13" ONLINE_MAP_ID="13"/>
+        <RUN ID="14" ONLINE_MAP_ID="14"/>
+        <RUN ID="15" ONLINE_MAP_ID="15"/>
+        <RUN ID="16" ONLINE_MAP_ID="16"/>
+        <RUN ID="17" ONLINE_MAP_ID="17"/>
+        <RUN ID="18" ONLINE_MAP_ID="18"/>
+        <RUN ID="19" ONLINE_MAP_ID="19"/>
+        <RUN ID="20" ONLINE_MAP_ID="20"/>
+        <RUN ID="21" ONLINE_MAP_ID="21"/>
+        <RUN ID="22" ONLINE_MAP_ID="22"/>
     </GROUP>
 </configuration>
