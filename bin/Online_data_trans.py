@@ -337,8 +337,10 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
 
                     dir_gis_values = {}
                     del_index_list = []
+                    gis_target_cols_v2 = []
                     for gis_index in range(len(gis_resualt)):
-                        gis_target_col_name = gis_target_cols[gis_index]
+                        gis_target_cols_v2 = gis_target_cols
+                        gis_target_col_name = gis_target_cols_v2[gis_index]
                         gis_line_str = ''
                         if gis_rule_list[gis_index] == '':
                             if isinstance(gis_resualt[gis_index], datetime.datetime):
@@ -375,10 +377,10 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                         dir_gis_values[gis_target_col_name] = gis_line_str
                         gis_values.append(gis_line_str)
                     for del_index in del_index_list:
-                        del gis_target_cols[del_index]
+                        del gis_target_cols_v2[del_index]
             spilt_chr = ','
             gis_line = spilt_chr.join(gis_values)
-            gis_target_line = spilt_chr.join(gis_target_cols)
+            gis_target_line = spilt_chr.join(gis_target_cols_v2)
             spilt_chr = ','
             res_line = spilt_chr.join(value)
             res_target_line = spilt_chr.join(res_target_cols)
@@ -399,12 +401,12 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 if res_gis_is_need == '1':
                     for key in gis_ignore_dir:
                         if gis_ignore_dir[key] == 'Y':
-                            gis_ignore_index = gis_target_cols.index(key)
-                            gis_target_cols.remove(key)
+                            gis_ignore_index = gis_target_cols_v2.index(key)
+                            gis_target_cols_v2.remove(key)
                             del gis_values[gis_ignore_index]
                     spilt_chr = ','
                     gis_line = spilt_chr.join(gis_values)
-                    gis_target_line = spilt_chr.join(gis_target_cols)
+                    gis_target_line = spilt_chr.join(gis_target_cols_v2)
                     gis_up_condition_index = re.search(r':(\w)+:', gis_up_condition_name).span()
                     gis_up_condition_id = gis_up_condition_name[
                                           gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
