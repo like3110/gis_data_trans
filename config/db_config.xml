@@ -1,46 +1,48 @@
 <?xml version='1.0' encoding='utf-8'?>
 <configuration>
-    <auth DB_NAME="ORACLE209">
+    <auth DB_NAME="resdb_gx">
         <type>oracle</type>
-        <host>10.45.28.209</host>
+        <host>10.229.121.165</host>
+        <port>9999</port>
+        <sid>resdb1</sid>
+        <server_name>resdb1</server_name>
+        <username>resqhyd_p</username>
+        <password>ztesoft2017</password>
+    </auth>
+    <auth DB_NAME="resdb_zxsj">
+        <type>oracle</type>
+        <host>10.229.121.165</host>
         <port>1521</port>
-        <!--  oracle sid或server_name ,必选选一个参数写入，同时存在server_name 和 sid时优先使用server_name作为连接参数
-        <sid>res189</sid>
-        <serven_name>res189</serven_name>
-        -->
+        <sid>resdb1</sid>
+        <server_name>resdb1</server_name>
+        <username>RES_CMQH_ZXSJ</username>
+        <password>Ztesoft#2018</password>
+    </auth>
+    <auth DB_NAME="gis_zxsj">
+        <type>oracle</type>
+        <host>10.229.121.208</host>
+        <port>1521</port>
         <sid>orcl</sid>
-        <server_name></server_name>
-        <username>GIS_CMJS_TEST</username>
-        <password>GIS_CMJS_TEST</password>
+        <server_name>orcl</server_name>
+        <username>GIS_CMQH_ZXSJ_DEV</username>
+        <password>Ztesoft#2018</password>
     </auth>
-    <auth DB_NAME="ORACLE189">
+    <auth DB_NAME="gis_gx">
         <type>oracle</type>
-        <host>10.45.53.189</host>
+        <host>10.229.121.209</host>
         <port>1521</port>
-        <!--  oracle sid或server_name ,必选选一个参数写入，同时存在server_name 和 sid时优先使用server_name作为连接参数
-        <sid>res189</sid>
-        <serven_name>res189</serven_name>
-        -->
-        <sid>res189</sid>
-        <server_name></server_name>
-        <username>GIS_CMJS_TEST</username>
-        <password>GIS_CMJS_TEST</password>
+        <sid>orcl</sid>
+        <server_name>orcl</server_name>
+        <username>sde_res</username>
+        <password>ztesoft123</password>
     </auth>
-    <auth DB_NAME="pg">
-        <type>postgre</type>
-        <host>10.45.59.187</host>
+    <auth DB_NAME="res_mid">
+        <type>oracle</type>
+        <host>10.229.117.44</host>
         <port>1521</port>
-        <db>orcl</db>
+        <sid>resdb</sid>
         <server_name></server_name>
-        <username>BDTA_PD_TEST</username>
-        <password></password>
-    </auth>
-    <auth DB_NAME="MYSQL209">
-        <type>mysql</type>
-        <host>10.45.28.209</host>
-        <port>3306</port>
-        <db>hive</db>
-        <username>root</username>
-        <password></password>
+        <username>RES_CMQH_ZXSJ</username>
+        <password>Ztesoft#2018</password>
     </auth>
 </configuration>

@@ -250,7 +250,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     res_source_line = spilt_chr.join(res_source_cols)
     res_source_line = res_source_line + ',BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
     del_flag_pre = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=2 WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1'
-    get_data_sql = 'SELECT ' + res_source_line + ' FROM ' + res_source_tab_name + " WHERE " + res_where_name + " AND BEFORE_AFTER = 'AFTER' AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
+    get_data_sql = 'SELECT ' + res_source_line + ' FROM ' + res_source_tab_name + " WHERE " + res_where_name + " AND (BEFORE_AFTER = 'AFTER' OR OP_FLAG='DELETE') AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
     logging.debug(get_data_sql)
     res_source_db_config = db_connect.get_db_config(db_cfg_file, in_source_resdb_name)
     res_source_db_conn = db_connect.get_connect(res_source_db_config)
@@ -443,7 +443,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                                                                   'sec': (child_end - child_start).seconds}
     logging.info(child_log_str)
 
-
+'''
 if __name__ == '__main__':
     mainStart = datetime.datetime.now()
     main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
@@ -486,4 +486,3 @@ if __name__ == '__main__':
             add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name)
         elif sync_type == 'ALL':
             pass
-'''
