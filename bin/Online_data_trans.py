@@ -311,7 +311,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             res_condition_id = res_condition_name[res_condition_index[0] + 1:res_condition_index[1] - 1]
             res_condition_data_index = source_table_title.index(res_condition_id)
             res_condition_data = values_line[res_condition_data_index]
-            res_condition_final = re.sub(r':(\w)+:', res_condition_data, res_condition_name)
+            res_condition_final = re.sub(r':(\w)+:', str(res_condition_data), res_condition_name)
             sql_data_exists = 'SELECT COUNT(1) FROM ' + res_target_tab_name + ' WHERE ' + res_condition_final
             logging.debug(sql_data_exists)
             res_target_db_cursor.execute(sql_data_exists)
@@ -324,7 +324,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 gis_condition_index = re.search(r':(\w)+:', gis_fetch_condition_name).span()
                 gis_condition_id = gis_fetch_condition_name[gis_condition_index[0] + 1:gis_condition_index[1] - 1]
                 gis_condition_data = dir_value[gis_condition_id]
-                gis_condition_final = re.sub(r':(\w)+:', gis_condition_data, gis_fetch_condition_name)
+                gis_condition_final = re.sub(r':(\w)+:', str(gis_condition_data), gis_fetch_condition_name)
                 sql_get_gis_data = 'SELECT ' + gis_source_line + ' FROM ' + gis_source_tab_name + ' WHERE ' + gis_condition_final
                 logging.debug(sql_get_gis_data)
                 gis_source_db_cursor.execute(sql_get_gis_data)
@@ -337,11 +337,12 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
 
                     dir_gis_values = {}
                     del_index_list = []
-                    gis_target_cols_v2 = []
                     for gis_index in range(len(gis_resualt)):
-                        gis_target_cols_v2 = gis_target_cols
-                        gis_target_col_name = gis_target_cols_v2[gis_index]
+                        gis_target_col_name = gis_target_cols[gis_index]
                         gis_line_str = ''
+                        print(gis_index)
+                        print(gis_rule_list[gis_index])
+                        print(gis_target_cols[gis_index])
                         if gis_rule_list[gis_index] == '':
                             if isinstance(gis_resualt[gis_index], datetime.datetime):
                                 gis_line_str = "TO_DATE('" + str(gis_resualt[gis_index]) + "','YYYY-MM-DD hh24:mi:ss')"
@@ -377,10 +378,10 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                         dir_gis_values[gis_target_col_name] = gis_line_str
                         gis_values.append(gis_line_str)
                     for del_index in del_index_list:
-                        del gis_target_cols_v2[del_index]
+                        del gis_target_cols[del_index]
             spilt_chr = ','
             gis_line = spilt_chr.join(gis_values)
-            gis_target_line = spilt_chr.join(gis_target_cols_v2)
+            gis_target_line = spilt_chr.join(gis_target_cols)
             spilt_chr = ','
             res_line = spilt_chr.join(value)
             res_target_line = spilt_chr.join(res_target_cols)
@@ -399,19 +400,24 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                     logging.debug(child_log_str)
             elif eachline[-2] == 'SQL COMPUPDATE':
                 if res_gis_is_need == '1':
+                    gis_target_gis_values = []
+                    gis_target_cols_v2 = []
                     for key in gis_ignore_dir:
                         if gis_ignore_dir[key] == 'Y':
-                            gis_ignore_index = gis_target_cols_v2.index(key)
-                            gis_target_cols_v2.remove(key)
-                            del gis_values[gis_ignore_index]
+                            pass
+                        else:
+                            gis_target_cols_v2.append(key)
+                            gis_target_gis_values.append(gis_target_cols.index(key))
                     spilt_chr = ','
-                    gis_line = spilt_chr.join(gis_values)
+                    gis_line = spilt_chr.join(gis_target_gis_values)
                     gis_target_line = spilt_chr.join(gis_target_cols_v2)
                     gis_up_condition_index = re.search(r':(\w)+:', gis_up_condition_name).span()
                     gis_up_condition_id = gis_up_condition_name[
                                           gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
+                    print(gis_up_condition_id)
                     gis_up_condition_data = dir_value[gis_up_condition_id]
-                    gis_up_condition_final = re.sub(r':(\w)+:', gis_up_condition_data, gis_up_condition_name)
+                    print(gis_up_condition_data)
+                    gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
                     gis_final_sql = 'UPDATE ' + gis_target_tab_name + ' SET (' + gis_target_line + ')=(SELECT  ' + gis_line + ' FROM DUAL) WHERE ' \
                                     + gis_up_condition_final
                     logging.debug(gis_final_sql)
@@ -426,7 +432,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                     gis_up_condition_id = gis_up_condition_name[
                                           gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
                     gis_up_condition_data = dir_value[gis_up_condition_id]
-                    gis_up_condition_final = re.sub(r':(\w)+:', gis_up_condition_data, gis_up_condition_name)
+                    gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
                     gis_final_sql = 'DELETE FROM ' + gis_target_tab_name + ' WHERE ' + gis_up_condition_final
                     logging.debug(gis_final_sql)
                     gis_target_db_cursor.execute(gis_final_sql)
@@ -444,6 +450,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     child_log_str = "MAPPING %(mapping_name)s run %(sec)0.2f " % {'mapping_name': mapping_id,
                                                                   'sec': (child_end - child_start).seconds}
     logging.info(child_log_str)
+
 
 '''
 if __name__ == '__main__':
