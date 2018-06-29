@@ -121,15 +121,21 @@ def trans_typeid(old_typeid):
 
 
 def trans_res_id(old_res_id):
-    old_res_type_id = old_res_id[4:8]
-    old_res_type_id = int(old_res_type_id)
-    new_res_type_id = trans_typeid(old_res_type_id)
-    if len(new_res_type_id) < 4:
-        new_res_type_id = '0' + new_res_type_id
+    if old_res_id is None:
+        return 'None'
     else:
-        new_res_type_id = new_res_type_id
-    new_res_id = old_res_id[0:4] + new_res_type_id + old_res_id[8:]
-    return new_res_id
+        if len(old_res_id) != 24 :
+            return old_res_id
+        else:
+            old_res_type_id = old_res_id[4:8]
+            old_res_type_id = int(old_res_type_id)
+            new_res_type_id = trans_typeid(old_res_type_id)
+            if len(new_res_type_id) < 4:
+                new_res_type_id = '0' + new_res_type_id
+            else:
+                new_res_type_id = new_res_type_id
+            new_res_id = old_res_id[0:4] + new_res_type_id + old_res_id[8:]
+            return new_res_id
 
 
 def get_gis_cfg_data(in_dbname):
@@ -273,6 +279,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             value = []
             values_line = []
             dir_value = {}
+            gis_find_flag = 1
             for index in range(len(eachline) - 4):
                 target_col_name = res_target_cols[index]
                 line_str = ''
@@ -333,16 +340,16 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 if gis_resualt is None:
                     child_log_str = "CAN NOT FETCH GIS DATA IN %(sql)s" % {'sql': sql_get_gis_data}
                     logging.warning(child_log_str)
+                    gis_find_flag = 0
                 else:
-
                     dir_gis_values = {}
                     del_index_list = []
                     for gis_index in range(len(gis_resualt)):
                         gis_target_col_name = gis_target_cols[gis_index]
                         gis_line_str = ''
-                        print(gis_index)
-                        print(gis_rule_list[gis_index])
-                        print(gis_target_cols[gis_index])
+                        # print(gis_index)
+                        # print(gis_rule_list[gis_index])
+                        # print(gis_target_cols[gis_index])
                         if gis_rule_list[gis_index] == '':
                             if isinstance(gis_resualt[gis_index], datetime.datetime):
                                 gis_line_str = "TO_DATE('" + str(gis_resualt[gis_index]) + "','YYYY-MM-DD hh24:mi:ss')"
@@ -389,56 +396,71 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 if data_flag == 0:
                     res_final_sql = 'INSERT INTO ' + res_target_tab_name + '(' + res_target_line + ') VALUES (' + res_line + ')'
                     if res_gis_is_need == '1':
-                        gis_final_sql = 'INSERT INTO ' + gis_target_tab_name + '(' + gis_target_line + ') VALUES (' + gis_line + ')'
-                        logging.debug(gis_final_sql)
-                        gis_target_db_cursor.execute(gis_final_sql)
-                    logging.debug(res_final_sql)
-                    res_target_db_cursor.execute(res_final_sql)
+                        if gis_find_flag == 1:
+                            gis_final_sql = 'INSERT INTO ' + gis_target_tab_name + '(' + gis_target_line + ') VALUES (' + gis_line + ')'
+                            logging.debug(gis_final_sql)
+                            gis_target_db_cursor.execute(gis_final_sql)
+                            logging.debug(res_final_sql)
+                            res_target_db_cursor.execute(res_final_sql)
+                    else:
+                        logging.debug(res_final_sql)
+                        res_target_db_cursor.execute(res_final_sql)
+
                 else:
                     child_log_str = "DATA EXISTS IN TARGET TABLE %(table_name)s ID %(id)s " % {
                         'table_name': res_target_tab_name, 'id': res_condition_final}
                     logging.debug(child_log_str)
             elif eachline[-2] == 'SQL COMPUPDATE':
-                if res_gis_is_need == '1':
-                    gis_target_gis_values = []
-                    gis_target_cols_v2 = []
-                    for key in gis_ignore_dir:
-                        if gis_ignore_dir[key] == 'Y':
-                            pass
-                        else:
-                            gis_target_cols_v2.append(key)
-                            gis_target_gis_values.append(gis_target_cols.index(key))
-                    spilt_chr = ','
-                    gis_line = spilt_chr.join(gis_target_gis_values)
-                    gis_target_line = spilt_chr.join(gis_target_cols_v2)
-                    gis_up_condition_index = re.search(r':(\w)+:', gis_up_condition_name).span()
-                    gis_up_condition_id = gis_up_condition_name[
-                                          gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
-                    print(gis_up_condition_id)
-                    gis_up_condition_data = dir_value[gis_up_condition_id]
-                    print(gis_up_condition_data)
-                    gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
-                    gis_final_sql = 'UPDATE ' + gis_target_tab_name + ' SET (' + gis_target_line + ')=(SELECT  ' + gis_line + ' FROM DUAL) WHERE ' \
-                                    + gis_up_condition_final
-                    logging.debug(gis_final_sql)
-                    gis_target_db_cursor.execute(gis_final_sql)
                 res_final_sql = 'UPDATE ' + res_target_tab_name + ' SET (' + res_target_line + ')=(SELECT  ' + res_line + ' FROM DUAL) WHERE ' \
                                 + res_condition_final
-                logging.debug(res_final_sql)
-                res_target_db_cursor.execute(res_final_sql)
-            elif eachline[-2] == 'DELETE':
                 if res_gis_is_need == '1':
-                    gis_up_condition_index = re.search(r':(\w)+:', gis_up_condition_name).span()
-                    gis_up_condition_id = gis_up_condition_name[
-                                          gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
-                    gis_up_condition_data = dir_value[gis_up_condition_id]
-                    gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
-                    gis_final_sql = 'DELETE FROM ' + gis_target_tab_name + ' WHERE ' + gis_up_condition_final
-                    logging.debug(gis_final_sql)
-                    gis_target_db_cursor.execute(gis_final_sql)
+                    if gis_find_flag == 1:
+                        gis_target_gis_values = []
+                        gis_target_cols_v2 = []
+                        for key in gis_ignore_dir:
+                            if gis_ignore_dir[key] == 'Y':
+                                pass
+                            else:
+                                gis_target_cols_v2.append(key)
+                                gis_target_gis_values.append(gis_values[gis_target_cols.index(key)])
+                        spilt_chr = ','
+                        # print(gis_target_gis_values)
+                        gis_line = spilt_chr.join(gis_target_gis_values)
+                        gis_target_line = spilt_chr.join(gis_target_cols_v2)
+                        gis_up_condition_index = re.search(r':(\w)+:', gis_up_condition_name).span()
+                        gis_up_condition_id = gis_up_condition_name[
+                                              gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
+                        # print(gis_up_condition_id)
+                        gis_up_condition_data = dir_value[gis_up_condition_id]
+                        # print(gis_up_condition_data)
+                        gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
+                        gis_final_sql = 'UPDATE ' + gis_target_tab_name + ' SET (' + gis_target_line + ')=(SELECT  ' + gis_line + ' FROM DUAL) WHERE ' \
+                                        + gis_up_condition_final
+                        logging.debug(gis_final_sql)
+                        gis_target_db_cursor.execute(gis_final_sql)
+
+                        logging.debug(res_final_sql)
+                        res_target_db_cursor.execute(res_final_sql)
+                else:
+                    logging.debug(res_final_sql)
+                    res_target_db_cursor.execute(res_final_sql)
+            elif eachline[-2] == 'DELETE':
                 res_final_sql = 'DELETE FROM ' + res_target_tab_name + ' WHERE ' + res_condition_final
-                logging.debug(res_final_sql)
-                res_target_db_cursor.execute(res_final_sql)
+                if res_gis_is_need == '1':
+                    if gis_find_flag == 1:
+                        gis_up_condition_index = re.search(r':(\w)+:', gis_up_condition_name).span()
+                        gis_up_condition_id = gis_up_condition_name[
+                                              gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
+                        gis_up_condition_data = dir_value[gis_up_condition_id]
+                        gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
+                        gis_final_sql = 'DELETE FROM ' + gis_target_tab_name + ' WHERE ' + gis_up_condition_final
+                        logging.debug(gis_final_sql)
+                        gis_target_db_cursor.execute(gis_final_sql)
+                        logging.debug(res_final_sql)
+                        res_target_db_cursor.execute(res_final_sql)
+                else:
+                    logging.debug(res_final_sql)
+                    res_target_db_cursor.execute(res_final_sql)
     res_target_db_conn.commit()
     res_target_db_cursor.close()
     res_target_db_conn.close()
