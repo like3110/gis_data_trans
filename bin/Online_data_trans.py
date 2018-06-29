@@ -37,6 +37,7 @@ db_cfg_file = con_path + os.sep + 'db_config.xml'
 gis_map_cfg = con_path + os.sep + 'gis_map_cfg.xml'
 online_tab_cfg = con_path + os.sep + 'Online_tab_map_cfg.xml'
 trans_cfg = con_path + os.sep + 'trans_cfg.xml'
+gis_tab_map_cfg = con_path + os.sep + 'gis_table_cfg.xml'
 if os.path.exists(log_path):
     pass
 else:
@@ -124,7 +125,7 @@ def trans_res_id(old_res_id):
     if old_res_id is None:
         return 'None'
     else:
-        if len(old_res_id) != 24 :
+        if len(old_res_id) != 24:
             return old_res_id
         else:
             old_res_type_id = old_res_id[4:8]
@@ -202,16 +203,22 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     gis_up_condition_name = ''
     dir_seq = {}
     dir_srid = {}
+    gis_tab_map_dir = {}
     if res_gis_is_need == '1':
         res_gis_map_id = res_mapping_tree.attrib[
             'GIS_MAP_ID']  # Online_tab_map_cfg.xml 中GIS_MAP_ID对应gis_map_cfg.xml中MAPPING id
         gis_cfg_tree = Etree.parse(gis_map_cfg)
         gis_mapping_tree = gis_cfg_tree.find('MAPPING[@ID="%s"]' % res_gis_map_id)
+        gis_tab_map_tree = Etree.parse(gis_tab_map_cfg)
         '''
         获取gis_map_cfg.xml配置文件中MAPPING标签下所有数据
         '''
-        gis_source_tab_name = gis_mapping_tree.attrib['SOURCETABLE']
-        gis_target_tab_name = gis_mapping_tree.attrib['TARGETTABLE']
+        gis_tab_map_id = gis_mapping_tree.attrib['TABLEMAPID']
+        gis_tab_tree = gis_tab_map_tree.find('MAPPING[@ID="%s"]' % gis_tab_map_id)
+        for gis_tab_map_real_tree in gis_tab_tree:
+            gis_source_tab_name = gis_tab_map_real_tree.attrib['SOURCETABLE']
+            gis_target_tab_name = gis_tab_map_real_tree.attrib['TARGETTABLE']
+            gis_tab_map_dir[gis_source_tab_name] = gis_target_tab_name
         gis_fetch_condition_name = gis_mapping_tree.attrib['FETCH_CONDITION']
         gis_up_condition_name = gis_mapping_tree.attrib['UP_CONDITION']
         gis_geometrytype = gis_mapping_tree.attrib['GEOMETRYTYPE']
@@ -332,15 +339,27 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 gis_condition_id = gis_fetch_condition_name[gis_condition_index[0] + 1:gis_condition_index[1] - 1]
                 gis_condition_data = dir_value[gis_condition_id]
                 gis_condition_final = re.sub(r':(\w)+:', str(gis_condition_data), gis_fetch_condition_name)
-                sql_get_gis_data = 'SELECT ' + gis_source_line + ' FROM ' + gis_source_tab_name + ' WHERE ' + gis_condition_final
-                logging.debug(sql_get_gis_data)
-                gis_source_db_cursor.execute(sql_get_gis_data)
-                gis_resualt = gis_source_db_cursor.fetchone()
-
-                if gis_resualt is None:
-                    child_log_str = "CAN NOT FETCH GIS DATA IN %(sql)s" % {'sql': sql_get_gis_data}
+                for source_table in gis_tab_map_dir:
+                    gis_source_tab_name = source_table
+                    sql_get_gis_data = 'SELECT count(1) FROM ' + gis_source_tab_name + ' WHERE ' + gis_condition_final
+                    logging.debug(sql_get_gis_data)
+                    gis_source_db_cursor.execute(sql_get_gis_data)
+                    gis_resualt = gis_source_db_cursor.fetchone()
+                    if gis_resualt[0][0] == 0:
+                        pass
+                        gis_find_flag = 0
+                    else:
+                        gis_source_tab_name = source_table
+                        gis_target_tab_name = gis_tab_map_dir[source_table]
+                        sql_get_gis_data = 'SELECT ' + gis_source_line + ' FROM ' + gis_source_tab_name + ' WHERE ' + gis_condition_final
+                        logging.debug(sql_get_gis_data)
+                        gis_source_db_cursor.execute(sql_get_gis_data)
+                        gis_resualt = gis_source_db_cursor.fetchone()
+                        gis_find_flag = 1
+                        break
+                if gis_find_flag == 0:
+                    child_log_str = "CAN NOT FETCH GIS DATA"
                     logging.warning(child_log_str)
-                    gis_find_flag = 0
                 else:
                     dir_gis_values = {}
                     del_index_list = []
