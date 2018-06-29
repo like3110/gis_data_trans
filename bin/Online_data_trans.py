@@ -66,8 +66,10 @@ def trans_typeid(old_typeid):
         201: 634,
         205: 635,
         302: 848,
+        313: 870,
         317: 867,
         373: 868,
+        500: 500,
         501: 620,
         503: 621,
         505: 622,
@@ -344,10 +346,11 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                     sql_get_gis_data = 'SELECT count(1) FROM ' + gis_source_tab_name + ' WHERE ' + gis_condition_final
                     logging.debug(sql_get_gis_data)
                     gis_source_db_cursor.execute(sql_get_gis_data)
-                    gis_resualt = gis_source_db_cursor.fetchone()
+                    gis_resualt = gis_source_db_cursor.fetchall()
+
                     if gis_resualt[0][0] == 0:
-                        pass
                         gis_find_flag = 0
+                        pass
                     else:
                         gis_source_tab_name = source_table
                         gis_target_tab_name = gis_tab_map_dir[source_table]
@@ -375,6 +378,8 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                             else:
                                 gis_line_str = "'" + str(gis_resualt[gis_index]) + "'"
                         elif gis_rule_list[gis_index] == ':SEQ:':
+                            print (dir_seq[gis_target_tab_name])
+                            print (gis_target_tab_name)
                             gis_line_str = dir_seq[gis_target_tab_name] + '.NEXTVAL'
                         elif gis_rule_list[gis_index] == ':TRANS_TYPE_ID:':
                             gis_line_str = "'" + trans_typeid(gis_resualt[gis_index]) + "'"
