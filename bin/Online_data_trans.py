@@ -19,7 +19,7 @@ except ImportError:
 parser = argparse.ArgumentParser()
 parser.add_argument('--group', dest='group', required=True)
 parser.add_argument('--procnum', dest='procnum', required=True)
-parser.add_argument('--debug', dest='debug', required=False, default='DEBUG')
+parser.add_argument('--debug', dest='debug', required=False, default='INFO')
 args = parser.parse_args()
 group = args.group
 debug = args.debug
@@ -103,6 +103,7 @@ def trans_typeid(old_typeid):
         643: 624,
         644: 625,
         645: 601,
+        700: 700,
         701: 846,
         702: 847,
         703: 849,
@@ -263,7 +264,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             res_rule_list.append(res_rule_name)
     spilt_chr = ','
     res_source_line = spilt_chr.join(res_source_cols)
-    res_source_line = res_source_line + ',BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
+    res_source_line = res_source_line + ',ROWID,BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
     del_flag_pre = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=2 WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1'
     get_data_sql = 'SELECT ' + res_source_line + ' FROM ' + res_source_tab_name + " WHERE " + res_where_name + " AND (BEFORE_AFTER = 'AFTER' OR OP_FLAG='DELETE') AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
     logging.debug(get_data_sql)
@@ -289,7 +290,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             values_line = []
             dir_value = {}
             gis_find_flag = 1
-            for index in range(len(eachline) - 4):
+            for index in range(len(eachline) - 5):
                 target_col_name = res_target_cols[index]
                 line_str = ''
                 values_str = ''
@@ -363,6 +364,10 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 if gis_find_flag == 0:
                     child_log_str = "CAN NOT FETCH GIS DATA"
                     logging.warning(child_log_str)
+                    update_status_sql = "UPDATE " + res_source_tab_name + " SET DAL_FLAG=4 WHERE ROWID = '" + eachline[index] + "'"
+                    logging.warning(update_status_sql)
+                    res_source_db_cursor.execute(update_status_sql)
+                    res_source_db_conn.commit()
                 else:
                     dir_gis_values = {}
                     del_index_list = []
@@ -378,8 +383,8 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                             else:
                                 gis_line_str = "'" + str(gis_resualt[gis_index]) + "'"
                         elif gis_rule_list[gis_index] == ':SEQ:':
-                            print (dir_seq[gis_target_tab_name])
-                            print (gis_target_tab_name)
+                            #print(dir_seq[gis_target_tab_name])
+                            #print(gis_target_tab_name)
                             gis_line_str = dir_seq[gis_target_tab_name] + '.NEXTVAL'
                         elif gis_rule_list[gis_index] == ':TRANS_TYPE_ID:':
                             gis_line_str = "'" + trans_typeid(gis_resualt[gis_index]) + "'"
@@ -498,7 +503,6 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     logging.info(child_log_str)
 
 
-'''
 if __name__ == '__main__':
     mainStart = datetime.datetime.now()
     main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
@@ -541,3 +545,4 @@ if __name__ == '__main__':
             add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name)
         elif sync_type == 'ALL':
             pass
+'''
