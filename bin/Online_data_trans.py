@@ -16,13 +16,16 @@ try:
 except ImportError:
     import xml.etree.ElementTree as Etree
 
+#os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.ZHS16CGB231280'
 parser = argparse.ArgumentParser()
 parser.add_argument('--group', dest='group', required=True)
 parser.add_argument('--procnum', dest='procnum', required=True)
 parser.add_argument('--debug', dest='debug', required=False, default='INFO')
+parser.add_argument('--run', dest='run', required=False, default='normal')
 args = parser.parse_args()
 group = args.group
 debug = args.debug
+run_mo = args.run
 debug = debug.upper()
 debug_list = {'INFO': logging.INFO, 'DEBUG': logging.DEBUG, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR,
               'CRITICAL': logging.CRITICAL}
@@ -65,6 +68,9 @@ def trans_typeid(old_typeid):
         200: 200,
         201: 634,
         205: 635,
+        277: 277,
+        278: 278,
+        279: 279,
         302: 848,
         313: 870,
         317: 867,
@@ -120,19 +126,28 @@ def trans_typeid(old_typeid):
         871: 705,
         872: 744
     }
-    newtype_id = str(restype_map[old_typeid])
-    return newtype_id
+    if old_typeid in restype_map:
+        newtype_id = str(restype_map[old_typeid])
+        return newtype_id
+    else:
+        old_typeid = str(old_typeid)
+        return old_typeid
 
 
 def trans_res_id(old_res_id):
     if old_res_id is None:
         return 'None'
     else:
+        old_res_id.replace(' ', '')
         if len(old_res_id) != 24:
             return old_res_id
         else:
             old_res_type_id = old_res_id[4:8]
-            old_res_type_id = int(old_res_type_id)
+            old_res_type_id.replace(' ', '')
+            try:
+                old_res_type_id = int(old_res_type_id)
+            except Exception:
+                return old_res_type_id
             new_res_type_id = trans_typeid(old_res_type_id)
             if len(new_res_type_id) < 4:
                 new_res_type_id = '0' + new_res_type_id
@@ -146,7 +161,7 @@ def get_gis_cfg_data(in_dbname):
     db_config = db_connect.get_db_config(db_cfg_file, in_dbname)
     db_conn = db_connect.get_connect(db_config)
     db_cursor = db_conn.cursor()
-    sql_get_seq = "SELECT A.TABLE_NAME,A.REGISTRATION_ID FROM SDE.TABLE_REGISTRY A WHERE A.REGISTRATION_ID IS NOT NULL AND  A.TABLE_NAME IS NOT NULL"
+    sql_get_seq = "SELECT A.TABLE_NAME,A.REGISTRATION_ID FROM TABLE_REGISTRY A WHERE A.REGISTRATION_ID IS NOT NULL AND  A.TABLE_NAME IS NOT NULL"
     db_cursor.execute(sql_get_seq)
     dir_seq = {}
     while 1:
@@ -156,7 +171,7 @@ def get_gis_cfg_data(in_dbname):
         else:
             seq_name = 'R' + str(eachline[1])
             dir_seq[eachline[0]] = seq_name
-    sql_get_srid = 'SELECT B.TABLE_NAME ,A.AUTH_SRID FROM SDE.SPATIAL_REFERENCES A, SDE.LAYERS B WHERE A.SRID = B.SRID'
+    sql_get_srid = 'SELECT B.TABLE_NAME ,A.AUTH_SRID FROM SPATIAL_REFERENCES A, LAYERS B WHERE A.SRID = B.SRID'
     db_cursor.execute(sql_get_srid)
     dir_srid = {}
     while 1:
@@ -271,6 +286,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     res_source_db_config = db_connect.get_db_config(db_cfg_file, in_source_resdb_name)
     res_source_db_conn = db_connect.get_connect(res_source_db_config)
     res_source_db_cursor = res_source_db_conn.cursor()
+    res_source_update_cursor = res_source_db_conn.cursor()
     res_source_db_cursor.execute(del_flag_pre)
     res_source_db_conn.commit()
     res_source_db_cursor.execute(get_data_sql)
@@ -279,7 +295,11 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     res_target_db_cursor = res_target_db_conn.cursor()
     source_table_title = [i[0] for i in res_source_db_cursor.description]
     while 1:
-        eachline = res_source_db_cursor.fetchone()
+        try:
+            eachline = res_source_db_cursor.fetchone()
+        except:
+            #print (111111111111111111111111111)
+            continue
         if eachline is None:
             del_flag_pos = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=3 WHERE DAL_FLAG = 2'
             res_source_db_cursor.execute(del_flag_pos)
@@ -364,9 +384,11 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                 if gis_find_flag == 0:
                     child_log_str = "CAN NOT FETCH GIS DATA"
                     logging.warning(child_log_str)
-                    update_status_sql = "UPDATE " + res_source_tab_name + " SET DAL_FLAG=4 WHERE ROWID = '" + eachline[index] + "'"
+                    update_status_sql = "UPDATE " + res_source_tab_name + " SET DAL_FLAG=4 WHERE ROWID = '" + \
+                                        eachline[
+                                            -5] + "'"
                     logging.warning(update_status_sql)
-                    res_source_db_cursor.execute(update_status_sql)
+                    res_source_update_cursor.execute(update_status_sql)
                     res_source_db_conn.commit()
                 else:
                     dir_gis_values = {}
@@ -379,12 +401,13 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                         # print(gis_target_cols[gis_index])
                         if gis_rule_list[gis_index] == '':
                             if isinstance(gis_resualt[gis_index], datetime.datetime):
-                                gis_line_str = "TO_DATE('" + str(gis_resualt[gis_index]) + "','YYYY-MM-DD hh24:mi:ss')"
+                                gis_line_str = "TO_DATE('" + str(
+                                    gis_resualt[gis_index]) + "','YYYY-MM-DD hh24:mi:ss')"
                             else:
                                 gis_line_str = "'" + str(gis_resualt[gis_index]) + "'"
                         elif gis_rule_list[gis_index] == ':SEQ:':
-                            #print(dir_seq[gis_target_tab_name])
-                            #print(gis_target_tab_name)
+                            # print(dir_seq[gis_target_tab_name])
+                            # print(gis_target_tab_name)
                             gis_line_str = dir_seq[gis_target_tab_name] + '.NEXTVAL'
                         elif gis_rule_list[gis_index] == ':TRANS_TYPE_ID:':
                             gis_line_str = "'" + trans_typeid(gis_resualt[gis_index]) + "'"
@@ -431,9 +454,13 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                             gis_target_db_cursor.execute(gis_final_sql)
                             logging.debug(res_final_sql)
                             res_target_db_cursor.execute(res_final_sql)
+                            gis_target_db_conn.commit()
+                            res_target_db_conn.commit()
                     else:
                         logging.debug(res_final_sql)
                         res_target_db_cursor.execute(res_final_sql)
+
+                        res_target_db_conn.commit()
 
                 else:
                     child_log_str = "DATA EXISTS IN TARGET TABLE %(table_name)s ID %(id)s " % {
@@ -462,17 +489,20 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                         # print(gis_up_condition_id)
                         gis_up_condition_data = dir_value[gis_up_condition_id]
                         # print(gis_up_condition_data)
-                        gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
+                        gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data),
+                                                        gis_up_condition_name)
                         gis_final_sql = 'UPDATE ' + gis_target_tab_name + ' SET (' + gis_target_line + ')=(SELECT  ' + gis_line + ' FROM DUAL) WHERE ' \
                                         + gis_up_condition_final
                         logging.debug(gis_final_sql)
                         gis_target_db_cursor.execute(gis_final_sql)
-
                         logging.debug(res_final_sql)
                         res_target_db_cursor.execute(res_final_sql)
+                        gis_target_db_conn.commit()
+                        res_target_db_conn.commit()
                 else:
                     logging.debug(res_final_sql)
                     res_target_db_cursor.execute(res_final_sql)
+                    res_target_db_conn.commit()
             elif eachline[-2] == 'DELETE':
                 res_final_sql = 'DELETE FROM ' + res_target_tab_name + ' WHERE ' + res_condition_final
                 if res_gis_is_need == '1':
@@ -481,18 +511,31 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                         gis_up_condition_id = gis_up_condition_name[
                                               gis_up_condition_index[0] + 1:gis_up_condition_index[1] - 1]
                         gis_up_condition_data = dir_value[gis_up_condition_id]
-                        gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data), gis_up_condition_name)
+                        gis_up_condition_final = re.sub(r':(\w)+:', str(gis_up_condition_data),
+                                                        gis_up_condition_name)
                         gis_final_sql = 'DELETE FROM ' + gis_target_tab_name + ' WHERE ' + gis_up_condition_final
                         logging.debug(gis_final_sql)
                         gis_target_db_cursor.execute(gis_final_sql)
                         logging.debug(res_final_sql)
                         res_target_db_cursor.execute(res_final_sql)
+                        gis_target_db_conn.commit()
+                        res_target_db_conn.commit()
                 else:
                     logging.debug(res_final_sql)
                     res_target_db_cursor.execute(res_final_sql)
+                    res_target_db_conn.commit()
+            del_flag_pos1 = "UPDATE " + res_source_tab_name + " SET DAL_FLAG=3 WHERE DAL_FLAG = 2 AND ROWID = '" + \
+                            eachline[-5] + "'"
+            res_source_db_cursor_u = res_source_db_conn.cursor()
+            res_source_db_cursor_u.execute(del_flag_pos1)
+
     res_target_db_conn.commit()
     res_target_db_cursor.close()
     res_target_db_conn.close()
+    if res_gis_is_need == '1':
+        gis_target_db_conn.commit()
+        gis_target_db_cursor.close()
+        gis_target_db_conn.close()
     res_source_db_cursor.close()
     res_source_db_conn.close()
     child_end = datetime.datetime.now()
@@ -504,45 +547,44 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
 
 
 if __name__ == '__main__':
-    mainStart = datetime.datetime.now()
-    main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
-    logging.info(main_log_str)
-    p = Pool(procnum)
-    trans_tree = Etree.parse(trans_cfg)
-    group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
-    source_resdb_name = group_tree.attrib['SOURCE_RES_DB']
-    source_gisdb_name = group_tree.attrib['SOURCE_GIS_DB']
-    target_resdb_name = group_tree.attrib['TARGET_RES_DB']
-    target_gisdb_name = group_tree.attrib['TARGET_GIS_DB']
-    sync_type = group_tree.attrib['SYNC_TYPE']
-    for mapping_tree in group_tree:
-        if sync_type == 'ADD':
-            p.apply_async(add_data_trans, args=(
-                mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name))
-        elif sync_type == 'ALL':
-            pass
-    p.close()
-    p.join()
-    main_log_str = "All subprocesses done"
-    logging.info(main_log_str)
-    mainEnd = datetime.datetime.now()
-    main_log_str = "End the main process %(pid)s" % {'pid': os.getpid()}
-    logging.info(main_log_str)
-    main_log_str = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
-    logging.info(main_log_str)
-
-'''
-if __name__ == '__main__':
-    trans_tree = Etree.parse(trans_cfg)
-    group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
-    source_resdb_name = group_tree.attrib['SOURCE_RES_DB']
-    source_gisdb_name = group_tree.attrib['SOURCE_GIS_DB']
-    target_resdb_name = group_tree.attrib['TARGET_RES_DB']
-    target_gisdb_name = group_tree.attrib['TARGET_GIS_DB']
-    sync_type = group_tree.attrib['SYNC_TYPE']
-    for mapping_tree in group_tree:
-        if sync_type == 'ADD':
-            add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name)
-        elif sync_type == 'ALL':
-            pass
-'''
+    if run_mo == 'normal':
+        mainStart = datetime.datetime.now()
+        main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
+        logging.info(main_log_str)
+        p = Pool(procnum)
+        trans_tree = Etree.parse(trans_cfg)
+        group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
+        source_resdb_name = group_tree.attrib['SOURCE_RES_DB']
+        source_gisdb_name = group_tree.attrib['SOURCE_GIS_DB']
+        target_resdb_name = group_tree.attrib['TARGET_RES_DB']
+        target_gisdb_name = group_tree.attrib['TARGET_GIS_DB']
+        sync_type = group_tree.attrib['SYNC_TYPE']
+        for mapping_tree in group_tree:
+            if sync_type == 'ADD':
+                p.apply_async(add_data_trans, args=(
+                    mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name))
+            elif sync_type == 'ALL':
+                pass
+        p.close()
+        p.join()
+        main_log_str = "All subprocesses done"
+        logging.info(main_log_str)
+        mainEnd = datetime.datetime.now()
+        main_log_str = "End the main process %(pid)s" % {'pid': os.getpid()}
+        logging.info(main_log_str)
+        main_log_str = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
+        logging.info(main_log_str)
+    else:
+        trans_tree = Etree.parse(trans_cfg)
+        group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
+        source_resdb_name = group_tree.attrib['SOURCE_RES_DB']
+        source_gisdb_name = group_tree.attrib['SOURCE_GIS_DB']
+        target_resdb_name = group_tree.attrib['TARGET_RES_DB']
+        target_gisdb_name = group_tree.attrib['TARGET_GIS_DB']
+        sync_type = group_tree.attrib['SYNC_TYPE']
+        for mapping_tree in group_tree:
+            if sync_type == 'ADD':
+                add_data_trans(mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name,
+                               target_gisdb_name)
+            elif sync_type == 'ALL':
+                pass
