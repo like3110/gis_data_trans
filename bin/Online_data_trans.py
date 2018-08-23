@@ -4,6 +4,7 @@
 # Usage: 数据同步工具
 
 import datetime
+import time
 import os
 import re
 import argparse
@@ -22,10 +23,12 @@ parser.add_argument('--group', dest='group', required=True)
 parser.add_argument('--procnum', dest='procnum', required=True)
 parser.add_argument('--debug', dest='debug', required=False, default='INFO')
 parser.add_argument('--run', dest='run', required=False, default='normal')
+parser.add_argument('--interval', dest='run', required=False, default=60)
 args = parser.parse_args()
 group = args.group
 debug = args.debug
 run_mo = args.run
+interval = args.interval
 debug = debug.upper()
 debug_list = {'INFO': logging.INFO, 'DEBUG': logging.DEBUG, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR,
               'CRITICAL': logging.CRITICAL}
@@ -350,7 +353,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             res_condition_data_index = source_table_title.index(res_condition_id)
             #res_condition_data = values_line[res_condition_data_index]
             res_condition_data = value[res_condition_data_index]
-            print (value[res_condition_data_index])
+            #print (value[res_condition_data_index])
             res_condition_final = re.sub(r':(\w)+:', str(res_condition_data), res_condition_name)
             sql_data_exists = 'SELECT COUNT(1) FROM ' + res_target_tab_name + ' WHERE ' + res_condition_final
             logging.debug(sql_data_exists)
@@ -553,32 +556,34 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
 
 if __name__ == '__main__':
     if run_mo == 'normal':
-        mainStart = datetime.datetime.now()
-        main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
-        logging.info(main_log_str)
-        p = Pool(procnum)
-        trans_tree = Etree.parse(trans_cfg)
-        group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
-        source_resdb_name = group_tree.attrib['SOURCE_RES_DB']
-        source_gisdb_name = group_tree.attrib['SOURCE_GIS_DB']
-        target_resdb_name = group_tree.attrib['TARGET_RES_DB']
-        target_gisdb_name = group_tree.attrib['TARGET_GIS_DB']
-        sync_type = group_tree.attrib['SYNC_TYPE']
-        for mapping_tree in group_tree:
-            if sync_type == 'ADD':
-                p.apply_async(add_data_trans, args=(
-                    mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name))
-            elif sync_type == 'ALL':
-                pass
-        p.close()
-        p.join()
-        main_log_str = "All subprocesses done"
-        logging.info(main_log_str)
-        mainEnd = datetime.datetime.now()
-        main_log_str = "End the main process %(pid)s" % {'pid': os.getpid()}
-        logging.info(main_log_str)
-        main_log_str = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
-        logging.info(main_log_str)
+        while 1:
+            mainStart = datetime.datetime.now()
+            main_log_str = "Start the main process %(pid)s" % {'pid': os.getpid()}
+            logging.info(main_log_str)
+            p = Pool(procnum)
+            trans_tree = Etree.parse(trans_cfg)
+            group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
+            source_resdb_name = group_tree.attrib['SOURCE_RES_DB']
+            source_gisdb_name = group_tree.attrib['SOURCE_GIS_DB']
+            target_resdb_name = group_tree.attrib['TARGET_RES_DB']
+            target_gisdb_name = group_tree.attrib['TARGET_GIS_DB']
+            sync_type = group_tree.attrib['SYNC_TYPE']
+            for mapping_tree in group_tree:
+                if sync_type == 'ADD':
+                    p.apply_async(add_data_trans, args=(
+                        mapping_tree, source_resdb_name, source_gisdb_name, target_resdb_name, target_gisdb_name))
+                elif sync_type == 'ALL':
+                    pass
+            p.close()
+            p.join()
+            main_log_str = "All subprocesses done"
+            logging.info(main_log_str)
+            mainEnd = datetime.datetime.now()
+            main_log_str = "End the main process %(pid)s" % {'pid': os.getpid()}
+            logging.info(main_log_str)
+            main_log_str = "All process run %(sec)0.2f seconds." % {'sec': (mainEnd - mainStart).seconds}
+            logging.info(main_log_str)
+            time.sleep(interval)
     else:
         trans_tree = Etree.parse(trans_cfg)
         group_tree = trans_tree.find('GROUP[@ID="%s"]' % group)
