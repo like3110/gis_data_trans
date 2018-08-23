@@ -16,7 +16,7 @@ try:
 except ImportError:
     import xml.etree.ElementTree as Etree
 
-#os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.ZHS16CGB231280'
+# os.environ['NLS_LANG'] = 'SIMPLIFIED CHINESE_CHINA.ZHS16CGB231280'
 parser = argparse.ArgumentParser()
 parser.add_argument('--group', dest='group', required=True)
 parser.add_argument('--procnum', dest='procnum', required=True)
@@ -72,6 +72,7 @@ def trans_typeid(old_typeid):
         278: 278,
         279: 279,
         302: 848,
+        306: 869,
         313: 870,
         317: 867,
         373: 868,
@@ -280,7 +281,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
     spilt_chr = ','
     res_source_line = spilt_chr.join(res_source_cols)
     res_source_line = res_source_line + ',ROWID,BEFORE_AFTER,DEAL_DATE,OP_FLAG,DAL_FLAG'
-    del_flag_pre = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=2 WHERE DAL_FLAG IS NULL OR DAL_FLAG = 1'
+    del_flag_pre = 'UPDATE ' + res_source_tab_name + " SET DAL_FLAG=2 WHERE " + res_where_name + " AND DAL_FLAG IS NULL OR DAL_FLAG = 1"
     get_data_sql = 'SELECT ' + res_source_line + ' FROM ' + res_source_tab_name + " WHERE " + res_where_name + " AND (BEFORE_AFTER = 'AFTER' OR OP_FLAG='DELETE') AND DAL_FLAG = 2 ORDER BY DEAL_DATE"
     logging.debug(get_data_sql)
     res_source_db_config = db_connect.get_db_config(db_cfg_file, in_source_resdb_name)
@@ -298,7 +299,7 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
         try:
             eachline = res_source_db_cursor.fetchone()
         except:
-            #print (111111111111111111111111111)
+            # print (111111111111111111111111111)
             continue
         if eachline is None:
             del_flag_pos = 'UPDATE ' + res_source_tab_name + ' SET DAL_FLAG=3 WHERE DAL_FLAG = 2'
@@ -334,10 +335,10 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                     values_str = eachline[index]
                 elif res_rule_list[index] == ':TRANS_TYPE_ID:':
                     line_str = "'" + trans_typeid(eachline[index]) + "'"
-                    values_str = line_str
+                    values_str = "'" + str(eachline[index]) + "'"
                 elif res_rule_list[index] == ':TRANS_RES_ID:':
                     line_str = "'" + trans_res_id(eachline[index]) + "'"
-                    values_str = line_str
+                    values_str = "'" + str(eachline[index]) + "'"
                 if line_str == "'None'":
                     line_str = "''"
                     values_str = line_str
@@ -347,7 +348,9 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
             res_condition_index = re.search(r':(\w)+:', res_condition_name).span()
             res_condition_id = res_condition_name[res_condition_index[0] + 1:res_condition_index[1] - 1]
             res_condition_data_index = source_table_title.index(res_condition_id)
-            res_condition_data = values_line[res_condition_data_index]
+            #res_condition_data = values_line[res_condition_data_index]
+            res_condition_data = value[res_condition_data_index]
+            print (value[res_condition_data_index])
             res_condition_final = re.sub(r':(\w)+:', str(res_condition_data), res_condition_name)
             sql_data_exists = 'SELECT COUNT(1) FROM ' + res_target_tab_name + ' WHERE ' + res_condition_final
             logging.debug(sql_data_exists)
@@ -526,8 +529,10 @@ def add_data_trans(in_mapping_tree, in_source_resdb_name, in_source_gisdb_name, 
                     res_target_db_conn.commit()
             del_flag_pos1 = "UPDATE " + res_source_tab_name + " SET DAL_FLAG=3 WHERE DAL_FLAG = 2 AND ROWID = '" + \
                             eachline[-5] + "'"
+            logging.debug(del_flag_pos1)
             res_source_db_cursor_u = res_source_db_conn.cursor()
             res_source_db_cursor_u.execute(del_flag_pos1)
+            res_source_db_conn.commit()
 
     res_target_db_conn.commit()
     res_target_db_cursor.close()

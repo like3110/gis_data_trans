@@ -45,4 +45,31 @@
         <username>RES_CMQH_ZXSJ</username>
         <password>Ztesoft#2018</password>
     </auth>
+    <auth DB_NAME="res_test">
+        <type>oracle</type>
+        <host>47.75.141.93</host>
+        <port>9999</port>
+        <sid>orcl</sid>
+        <server_name></server_name>
+        <username>IT_TEST</username>
+        <password>ztesoft123</password>
+    </auth>
+    <auth DB_NAME="res_tar_test">
+        <type>oracle</type>
+        <host>47.75.141.93</host>
+        <port>9999</port>
+        <sid>orcl</sid>
+        <server_name></server_name>
+        <username>RES_PD_DEMO</username>
+        <password>ztesoft123</password>
+    </auth>
+    <auth DB_NAME="res_gis_test">
+        <type>oracle</type>
+        <host>47.75.141.93</host>
+        <port>9999</port>
+        <sid>orcl</sid>
+        <server_name></server_name>
+        <username>GIS_CMJS_TEST</username>
+        <password>ztesoft123</password>
+    </auth>
 </configuration>
