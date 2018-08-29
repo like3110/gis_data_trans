@@ -11,6 +11,7 @@ import argparse
 from multiprocessing import Pool
 import db_connect
 import logging
+from logging.handlers import TimedRotatingFileHandler
 
 try:
     import xml.etree.cElementTree as Etree
@@ -23,12 +24,12 @@ parser.add_argument('--group', dest='group', required=True)
 parser.add_argument('--procnum', dest='procnum', required=True)
 parser.add_argument('--debug', dest='debug', required=False, default='INFO')
 parser.add_argument('--run', dest='run', required=False, default='normal')
-parser.add_argument('--interval', dest='run', required=False, default=60)
+parser.add_argument('--interval', dest='interval', required=False, default='60')
 args = parser.parse_args()
 group = args.group
 debug = args.debug
 run_mo = args.run
-interval = args.interval
+interval = int(args.interval)
 debug = debug.upper()
 debug_list = {'INFO': logging.INFO, 'DEBUG': logging.DEBUG, 'WARNING': logging.WARNING, 'ERROR': logging.ERROR,
               'CRITICAL': logging.CRITICAL}
@@ -48,21 +49,20 @@ if os.path.exists(log_path):
     pass
 else:
     os.mkdir(log_path)
-
+formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
 log_name = datetime.date.isoformat(datetime.datetime.now().date()) + '.log'
 logfile = log_path + os.sep + log_name
 logging.basicConfig(level=debug_list[debug],
                     format='%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s',
                     datefmt='%a, %d %b %Y %H:%M:%S',
-                    filename=logfile,
                     filemode='a')
-
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s - %(filename)s[line:%(lineno)d] - %(levelname)s: %(message)s')
-console.setFormatter(formatter)
-logging.getLogger('').addHandler(console)
-
+logfile_sp = log_path + os.sep + 'Data_trans_output'
+log_file_handler = TimedRotatingFileHandler(filename=logfile_sp, when="D", interval=1, backupCount=7)
+log_file_handler.suffix = "%Y-%m-%d.log"
+log_file_handler.extMatch = re.compile(r"^\d{4}-\d{2}-\d{2}.log$")
+log_file_handler.setFormatter(formatter)
+log_file_handler.setLevel(debug_list[debug])
+logging.getLogger().addHandler(log_file_handler)
 
 def trans_typeid(old_typeid):
     restype_map = {
